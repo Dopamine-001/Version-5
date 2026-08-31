@@ -24,10 +24,17 @@ def _atom_style(representation: str, color_style: str) -> dict:
         if rep == "line":
             return {"line": {"color": "#57d6ff", "linewidth": 1.5}}
         if rep == "ribbon":
-            return {"ribbon": {"color": "#57d6ff", "thickness": 0.35}}
+            return {
+                "cartoon": {
+                    "color": "#57d6ff",
+                    "ribbon": True,
+                    "thickness": 0.35,
+                }
+            }
         return {"cartoon": {"color": "#57d6ff"}}
 
     scheme = COLOR_SCHEMES.get(color_style, "spectrum")
+
     if rep == "stick":
         return {"stick": {"colorscheme": scheme, "radius": 0.18}}
     if rep == "sphere":
@@ -35,7 +42,14 @@ def _atom_style(representation: str, color_style: str) -> dict:
     if rep == "line":
         return {"line": {"colorscheme": scheme, "linewidth": 1.5}}
     if rep == "ribbon":
-        return {"ribbon": {"colorscheme": scheme, "thickness": 0.35}}
+        return {
+            "cartoon": {
+                "colorscheme": scheme,
+                "ribbon": True,
+                "thickness": 0.35,
+            }
+        }
+    
     return {"cartoon": {"colorscheme": scheme}}
 
 

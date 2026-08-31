@@ -293,11 +293,34 @@ def _render_3d_structure_tab(protein: dict, pdb_text, af_meta: dict, plddt, sequ
 
     if af_meta:
         with st.expander("AlphaFold metadata"):
-            st.json({
-                k: af_meta.get(k)
-                for k in ("entryId", "modelCreatedDate", "latestVersion", "gene", "organismScientificName")
-                if af_meta.get(k) is not None
-            })
+            c1, c2 = st.columns(2)
+
+            with c1:
+                if af_meta.get("entryId"):
+                    st.markdown(
+                        f"**Entry ID**  \n{af_meta['entryId']}"
+                    )
+
+                if af_meta.get("gene"):
+                    st.markdown(
+                        f"**Gene**  \n{af_meta['gene']}"
+                    )
+
+                if af_meta.get("latestVersion") is not None:
+                    st.markdown(
+                        f"**Latest Version**  \n{af_meta['latestVersion']}"
+                    )
+
+            with c2:
+                if af_meta.get("organismScientificName"):
+                    st.markdown(
+                        f"**Organism**  \n{af_meta['organismScientificName']}"
+                    )
+
+                if af_meta.get("modelCreatedDate"):
+                    st.markdown(
+                        f"**Model Created**  \n{af_meta['modelCreatedDate']}"
+                    )
 
 
 def _render_hydrophobicity_tab(protein: dict, sequence: str) -> None:

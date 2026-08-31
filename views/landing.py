@@ -76,15 +76,23 @@ def _render_explore_mode() -> None:
         st.session_state["active_protein_query"] = protein_query.strip()
         st.rerun()
 
+    st.markdown("### Start with a protein")
+
+    st.markdown(
+        "Enter a **protein name, gene symbol or UniProt accession** above."
+    )
+
     st.markdown(
         """
-        ### Start with a protein
-        Enter a **protein name, gene symbol or UniProt accession** above.
-        <div class="small-note">The workspace combines UniProt annotations, AlphaFold structure and sequence analysis in one place.</div>
+        <div class="small-note">
+            The workspace combines UniProt annotations, AlphaFold structure and sequence analysis in one place.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-        The workspace will retrieve the protein sequence and annotations from
-        UniProt and, when available, its predicted structure from AlphaFold.
-        """
+    st.markdown(
+        "The workspace will retrieve the protein sequence and annotations from UniProt and, when available, its predicted structure from AlphaFold."
     )
 
     c1, c2, c3, c4 = st.columns(4)

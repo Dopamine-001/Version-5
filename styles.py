@@ -1,4 +1,3 @@
-```python
 """Dark black molecular theme for Protein Explorer."""
 
 import streamlit as st

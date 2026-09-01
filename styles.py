@@ -217,4 +217,3 @@ def inject_css() -> None:
         CUSTOM_CSS,
         unsafe_allow_html=True,
     )
-```

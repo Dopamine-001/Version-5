@@ -29,19 +29,85 @@ def _collect_texts(element, path):
     return values
 
 
+def _safe_json(response):
+    """Safely decode a JSON response."""
+    try:
+        return response.json()
+    except Exception:
+        return {}
+
+
+def _get_related_ids(gene_id, database):
+    """
+    Use NCBI ELink to retrieve IDs related to the Gene record.
+    """
+    url = f"{NCBI_BASE}/elink.fcgi"
+
+    params = {
+        "dbfrom": "gene",
+        "db": database,
+        "id": gene_id,
+        "retmode": "json",
+    }
+
+    try:
+        response = safe_get(url, params=params)
+        data = _safe_json(response)
+
+        ids = []
+
+        for linkset in data.get("linksets", []):
+            for linksetdb in linkset.get("linksetdbs", []):
+                ids.extend(linksetdb.get("links", []))
+
+        return list(dict.fromkeys(str(x) for x in ids))
+
+    except Exception:
+        return []
+
+
+def _search_database(term, database, retmax=20):
+    """
+    Generic NCBI ESearch helper.
+    """
+    url = f"{NCBI_BASE}/esearch.fcgi"
+
+    params = {
+        "db": database,
+        "term": term,
+        "retmode": "json",
+        "retmax": retmax,
+    }
+
+    try:
+        response = safe_get(url, params=params)
+        data = _safe_json(response)
+
+        return (
+            data
+            .get("esearchresult", {})
+            .get("idlist", [])
+        )
+
+    except Exception:
+        return []
+
+
 def get_ncbi_gene_info(protein_name):
     """
-    Retrieve detailed human Gene information from NCBI.
+    Retrieve detailed human NCBI Gene information.
 
     Uses:
-    - ESearch to identify the NCBI Gene record.
-    - ESummary for basic Gene metadata.
-    - EFetch for the detailed Gene XML record.
+    ESearch
+    ESummary
+    EFetch
+    ELink
+    Additional Entrez searches for related records.
     """
 
-    # ======================================================
-    # 1. SEARCH NCBI GENE
-    # ======================================================
+    # =========================================================
+    # 1. ESEARCH
+    # =========================================================
 
     search_url = f"{NCBI_BASE}/esearch.fcgi"
 
@@ -58,7 +124,7 @@ def get_ncbi_gene_info(protein_name):
             params=search_params,
         )
 
-        search_data = search_response.json()
+        search_data = _safe_json(search_response)
 
         id_list = (
             search_data
@@ -66,14 +132,25 @@ def get_ncbi_gene_info(protein_name):
             .get("idlist", [])
         )
 
+        # -----------------------------------------------------
+        # Fallback search
+        # -----------------------------------------------------
+
+        if not id_list:
+            id_list = _search_database(
+                f"{protein_name}[All Fields] AND Homo sapiens[Organism]",
+                "gene",
+                retmax=1,
+            )
+
         if not id_list:
             return None
 
-        gene_id = id_list[0]
+        gene_id = str(id_list[0])
 
-        # ==================================================
-        # 2. E-SUMMARY
-        # ==================================================
+        # =========================================================
+        # 2. ESUMMARY
+        # =========================================================
 
         summary_url = f"{NCBI_BASE}/esummary.fcgi"
 
@@ -88,7 +165,7 @@ def get_ncbi_gene_info(protein_name):
             params=summary_params,
         )
 
-        summary_data = summary_response.json()
+        summary_data = _safe_json(summary_response)
 
         result = (
             summary_data
@@ -96,9 +173,9 @@ def get_ncbi_gene_info(protein_name):
             .get(gene_id, {})
         )
 
-        # ==================================================
-        # 3. E-FETCH FULL GENE XML
-        # ==================================================
+        # =========================================================
+        # 3. EFETCH
+        # =========================================================
 
         fetch_url = f"{NCBI_BASE}/efetch.fcgi"
 
@@ -113,13 +190,11 @@ def get_ncbi_gene_info(protein_name):
             params=fetch_params,
         )
 
-        xml_root = ET.fromstring(
-            fetch_response.text
-        )
+        xml_root = ET.fromstring(fetch_response.text)
 
-        # ==================================================
-        # 4. BASIC IDENTITY
-        # ==================================================
+        # =========================================================
+        # 4. BASIC GENE IDENTITY
+        # =========================================================
 
         gene_symbol = (
             result.get("name")
@@ -139,9 +214,11 @@ def get_ncbi_gene_info(protein_name):
             or "Not available"
         )
 
-        organism = (
-            result.get("organism", {})
-        )
+        # =========================================================
+        # 5. ORGANISM
+        # =========================================================
+
+        organism = result.get("organism", {})
 
         if isinstance(organism, dict):
             organism_name = organism.get(
@@ -153,9 +230,9 @@ def get_ncbi_gene_info(protein_name):
                 organism or "Homo sapiens"
             )
 
-        # ==================================================
-        # 5. ALIASES
-        # ==================================================
+        # =========================================================
+        # 6. ALIASES
+        # =========================================================
 
         aliases = []
 
@@ -174,27 +251,20 @@ def get_ncbi_gene_info(protein_name):
         )
 
         if not aliases:
-            other_aliases = result.get(
-                "otheraliases"
-            )
+            other_aliases = result.get("otheraliases")
 
             if other_aliases:
                 aliases = [
                     x.strip()
-                    for x in str(
-                        other_aliases
-                    ).split(",")
+                    for x in str(other_aliases).split(",")
                     if x.strip()
                 ]
 
-        # Remove duplicates
-        aliases = list(
-            dict.fromkeys(aliases)
-        )
+        aliases = list(dict.fromkeys(aliases))
 
-        # ==================================================
-        # 6. CHROMOSOME / MAP LOCATION
-        # ==================================================
+        # =========================================================
+        # 7. CHROMOSOME
+        # =========================================================
 
         chromosome = (
             result.get("chromosome")
@@ -205,74 +275,73 @@ def get_ncbi_gene_info(protein_name):
             or "Unknown"
         )
 
+        # =========================================================
+        # 8. MAP LOCATION
+        # =========================================================
+
         map_location = (
             result.get("maplocation")
             or "Unknown"
         )
 
-        # ==================================================
-        # 7. GENE TYPE
-        # ==================================================
+        # =========================================================
+        # 9. GENE TYPE
+        # =========================================================
 
         gene_type = (
             result.get("genetype")
             or "Not available"
         )
 
-        # ==================================================
-        # 8. STATUS
-        # ==================================================
+        # =========================================================
+        # 10. STATUS
+        # =========================================================
 
         status = (
             result.get("status")
             or "Not available"
         )
 
-        # ==================================================
-        # 9. SUMMARY / DESCRIPTION
-        # ==================================================
+        # =========================================================
+        # 11. SUMMARY
+        # =========================================================
 
         summary = (
             result.get("summary")
             or "No summary available."
         )
 
-        # ==================================================
-        # 10. OTHER DESIGNATIONS
-        # ==================================================
+        # =========================================================
+        # 12. OTHER DESIGNATIONS
+        # =========================================================
 
         designations = _collect_texts(
             xml_root,
             ".//Gene-ref_syn/Gene-ref_syn_Other",
         )
 
-        # ==================================================
-        # 11. NOMENCLATURE
-        # ==================================================
+        # =========================================================
+        # 13. NOMENCLATURE
+        # =========================================================
 
         nomenclature_symbol = (
-            result.get(
-                "nomenclaturesymbol"
-            )
+            result.get("nomenclaturesymbol")
             or gene_symbol
         )
 
         nomenclature_full_name = (
-            result.get(
-                "nomenclaturefullname"
-            )
+            result.get("nomenclaturefullname")
             or gene_name
         )
 
-        # ==================================================
-        # 12. CROSS REFERENCES
-        # ==================================================
+        # =========================================================
+        # 14. CROSS REFERENCES
+        # =========================================================
 
         db_references = []
 
-        for dbtag in xml_root.findall(
-            ".//Dbtag"
-        ):
+        for dbtag in xml_root.findall(".//Dbtag"):
+
             db = _text(
                 dbtag,
                 "Dbtag_db",
@@ -288,6 +357,7 @@ def get_ncbi_gene_info(protein_name):
                 )
 
             if db and tag is not None and tag.text:
+
                 db_references.append(
                     {
                         "database": db,
@@ -295,48 +365,135 @@ def get_ncbi_gene_info(protein_name):
                     }
                 )
 
-        # ==================================================
-        # 13. RETURN EVERYTHING
-        # ==================================================
+        # =========================================================
+        # 15. RELATED RECORDS USING ELINK
+        # =========================================================
+
+        related_databases = {
+            "pubmed": "pubmed",
+            "protein": "protein",
+            "nucleotide": "nuccore",
+            "snp": "snp",
+            "clinvar": "clinvar",
+            "omim": "omim",
+        }
+
+        related_records = {}
+
+        for label, database in related_databases.items():
+
+            related_records[label] = _get_related_ids(
+                gene_id,
+                database,
+            )
+
+        # =========================================================
+        # 16. DIRECT DATABASE SEARCHES
+        # =========================================================
+
+        pubmed_ids = _search_database(
+            f"{gene_symbol}[Title/Abstract]",
+            "pubmed",
+            retmax=20,
+        )
+
+        protein_ids = related_records.get(
+            "protein",
+            [],
+        )
+
+        nucleotide_ids = related_records.get(
+            "nucleotide",
+            [],
+        )
+
+        snp_ids = related_records.get(
+            "snp",
+            [],
+        )
+
+        clinvar_ids = related_records.get(
+            "clinvar",
+            [],
+        )
+
+        # =========================================================
+        # 17. RETURN COMPLETE DATASET
+        # =========================================================
 
         return {
+
+            # Identity
             "gene_id": gene_id,
-
             "gene_symbol": gene_symbol,
-
             "gene_name": gene_name,
-
             "description": gene_name,
-
             "organism": organism_name,
 
+            # Location
             "chromosome": chromosome,
-
             "map_location": map_location,
-
             "genomic_location": map_location,
 
+            # Classification
             "gene_type": gene_type,
-
             "status": status,
 
+            # Names
             "aliases": aliases,
-
             "other_designations": designations,
 
+            # Function
             "summary": summary,
 
+            # Nomenclature
             "nomenclature_symbol": nomenclature_symbol,
-
             "nomenclature_full_name": nomenclature_full_name,
 
+            # Cross references
             "cross_references": db_references,
 
+            # Related databases
+            "related_records": related_records,
+
+            # Individual record collections
+            "pubmed_ids": pubmed_ids,
+            "protein_ids": protein_ids,
+            "nucleotide_ids": nucleotide_ids,
+            "snp_ids": snp_ids,
+            "clinvar_ids": clinvar_ids,
+
+            # Useful counts
+            "pubmed_count": len(pubmed_ids),
+            "protein_count": len(protein_ids),
+            "nucleotide_count": len(nucleotide_ids),
+            "snp_count": len(snp_ids),
+            "clinvar_count": len(clinvar_ids),
+
+            # NCBI URL
             "ncbi_gene_url": (
                 "https://www.ncbi.nlm.nih.gov/"
                 f"gene/{gene_id}"
             ),
         }
 
-    except Exception:
-        return None
+    except Exception as exc:
+
+        # Return a controlled error instead of crashing
+        # the entire Streamlit application.
+        return {
+            "error": str(exc),
+            "gene_id": None,
+            "gene_symbol": protein_name,
+            "gene_name": "NCBI retrieval failed",
+            "organism": "Homo sapiens",
+            "aliases": [],
+            "other_designations": [],
+            "cross_references": [],
+            "related_records": {},
+            "pubmed_ids": [],
+            "protein_ids": [],
+            "nucleotide_ids": [],
+            "snp_ids": [],
+            "clinvar_ids": [],
+        }

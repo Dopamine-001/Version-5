@@ -1,4 +1,4 @@
-"""Dark black molecular theme for Protein Explorer."""
+"""Dark molecular theme for Protein Explorer."""
 
 import streamlit as st
 
@@ -6,37 +6,68 @@ import streamlit as st
 CUSTOM_CSS = """
 <style>
 
-:root {
-    --bg: #050505;
-    --panel: #0c0c0c;
-    --border: #242424;
-    --text: #f5f5f5;
-    --muted: #999999;
-    --accent: #7ee7d8;
-}
-
-
-/* Main application */
+/* =========================================================
+   GLOBAL MOLECULAR BACKGROUND
+   ========================================================= */
 
 .stApp {
-    background: #050505;
+    background:
+        radial-gradient(circle at 15% 10%, rgba(126, 231, 216, 0.055), transparent 28%),
+        radial-gradient(circle at 85% 15%, rgba(100, 150, 255, 0.045), transparent 25%),
+        radial-gradient(circle at 50% 90%, rgba(126, 231, 216, 0.035), transparent 30%),
+        #050505 !important;
+
     color: #f5f5f5;
+    min-height: 100vh;
 }
 
 
-/* Main content */
+/* Subtle molecular/grid texture */
+
+.stApp::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+
+    background-image:
+        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+
+    background-size: 42px 42px;
+    mask-image: linear-gradient(to bottom, black, transparent 85%);
+}
+
+
+/* Keep Streamlit content above background */
+
+.stApp > * {
+    position: relative;
+    z-index: 1;
+}
+
+
+/* =========================================================
+   MAIN CONTENT
+   ========================================================= */
 
 .block-container {
     max-width: 1500px;
-    padding-top: 3rem;
+    padding-top: 2.5rem;
     padding-bottom: 4rem;
 }
 
 
-/* Sidebar */
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
 
 [data-testid="stSidebar"] {
-    background: #070707;
+    background:
+        radial-gradient(circle at 20% 10%, rgba(126,231,216,0.04), transparent 30%),
+        #070707 !important;
+
     border-right: 1px solid #242424;
 }
 
@@ -45,99 +76,261 @@ CUSTOM_CSS = """
 }
 
 
-/* Headings */
+/* =========================================================
+   GENERAL TEXT
+   ========================================================= */
 
-h1, h2, h3, h4 {
+h1, h2, h3, h4, h5, h6 {
     color: #f5f5f5 !important;
 }
 
+p, label {
+    color: #d0d0d0;
+}
 
-/* Hero */
+
+/* =========================================================
+   HERO
+   ========================================================= */
 
 .hero {
-    padding: 2rem 0 1.1rem;
-    margin-bottom: 1rem;
+    position: relative;
+
+    padding: 2.4rem 2.5rem 2rem;
+    margin: 0 0 1.5rem;
+
+    background:
+        radial-gradient(
+            circle at 90% 20%,
+            rgba(126, 231, 216, 0.08),
+            transparent 35%
+        ),
+        linear-gradient(
+            135deg,
+            rgba(255,255,255,0.025),
+            rgba(255,255,255,0.005)
+        );
+
+    border: 1px solid #242424;
+    border-radius: 20px;
+
+    overflow: hidden;
 }
+
+
+/* Molecular accent line */
+
+.hero::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+
+    width: 100%;
+    height: 2px;
+
+    background: linear-gradient(
+        90deg,
+        transparent,
+        #7ee7d8,
+        transparent
+    );
+
+    opacity: 0.8;
+}
+
+
+/* Decorative molecular nodes */
+
+.hero::after {
+    content: "◦   ·   ◦      ·      ◦";
+    position: absolute;
+
+    right: 2rem;
+    top: 1.2rem;
+
+    color: rgba(126,231,216,0.18);
+    font-size: 2rem;
+    letter-spacing: 0.7rem;
+
+    pointer-events: none;
+}
+
+
+/* Hero kicker */
 
 .kicker {
-    color: #7ee7d8;
+    color: #7ee7d8 !important;
+
     font-family: monospace;
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: 0.12em;
+
+    letter-spacing: 0.14em;
     text-transform: uppercase;
+
+    margin-bottom: 0.5rem;
 }
+
+
+/* Hero title */
 
 .hero-title {
+    display: block;
+
     color: #ffffff !important;
-    font-size: 3.5rem;
-    font-weight: 700;
-    line-height: 1.1;
-    margin: 0.4rem 0;
+
+    font-size: clamp(2.2rem, 5vw, 3.7rem);
+    font-weight: 750;
+
+    line-height: 1.05;
+
+    margin: 0.3rem 0 0.7rem;
+
+    letter-spacing: -0.035em;
 }
+
+
+/* Hero description */
 
 .hero-copy {
-    color: #999999;
-    font-size: 1rem;
+    display: block;
+
+    color: #999999 !important;
+
+    font-size: 0.98rem;
     line-height: 1.6;
+
+    margin-top: 0.3rem;
 }
 
 
-/* Metric cards */
+/* =========================================================
+   METRIC CARDS
+   ========================================================= */
 
 .metric-card {
-    background: #0c0c0c;
+    position: relative;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255,255,255,0.035),
+            rgba(255,255,255,0.008)
+        ),
+        #0b0b0b;
+
     border: 1px solid #242424;
     border-radius: 14px;
-    padding: 1rem;
-    min-height: 88px;
+
+    padding: 1.1rem;
+
+    min-height: 92px;
+
+    transition:
+        border-color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.metric-card:hover {
+    border-color: rgba(126,231,216,0.45);
+    transform: translateY(-2px);
 }
 
 .metric-label {
-    color: #999999;
+    color: #888888 !important;
+
     font-family: monospace;
     font-size: 0.65rem;
+
     text-transform: uppercase;
+    letter-spacing: 0.08em;
 }
 
 .metric-value {
-    color: #ffffff;
+    color: #ffffff !important;
+
     font-size: 1.35rem;
     font-weight: 700;
+
     margin-top: 0.25rem;
 }
 
 .metric-sub {
-    color: #7ee7d8;
+    color: #7ee7d8 !important;
+
     font-size: 0.72rem;
+    margin-top: 0.25rem;
 }
 
 
-/* Section titles */
+/* =========================================================
+   SOURCE BADGES
+   ========================================================= */
+
+.source-badge {
+    display: inline-block;
+
+    padding: 0.3rem 0.65rem;
+    margin-right: 0.35rem;
+    margin-bottom: 0.35rem;
+
+    border: 1px solid #292929;
+    border-radius: 999px;
+
+    background: #0b0b0b;
+
+    color: #8d8d8d !important;
+
+    font-family: monospace;
+    font-size: 0.65rem;
+}
+
+
+/* =========================================================
+   SECTION TITLES
+   ========================================================= */
 
 .section-title {
-    margin: 1.15rem 0 0.55rem;
-    color: #ffffff;
-    font-size: 1.2rem;
+    margin: 1.25rem 0 0.65rem;
+
+    color: #ffffff !important;
+
+    font-size: 1.15rem;
     font-weight: 700;
 }
 
 
-/* Containers */
+/* =========================================================
+   CONTAINERS / CARDS
+   ========================================================= */
 
 div[data-testid="stVerticalBlockBorderWrapper"] {
-    background: #0c0c0c;
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255,255,255,0.025),
+            rgba(255,255,255,0.005)
+        ),
+        #0b0b0b !important;
+
     border: 1px solid #242424 !important;
     border-radius: 14px;
 }
 
 
-/* Text inputs */
+/* =========================================================
+   INPUTS
+   ========================================================= */
 
 .stTextInput input,
 .stTextArea textarea {
     background: #0d0d0d !important;
+
     color: #ffffff !important;
-    border-color: #242424 !important;
+
+    border: 1px solid #292929 !important;
+    border-radius: 9px !important;
 }
 
 .stTextInput input::placeholder,
@@ -145,40 +338,74 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
     color: #666666 !important;
 }
 
-
-/* Select boxes */
-
-.stSelectbox div[data-baseweb="select"] > div {
-    background: #0d0d0d;
-    border-color: #242424;
-    color: #ffffff;
+.stTextInput input:focus,
+.stTextArea textarea:focus {
+    border-color: #7ee7d8 !important;
+    box-shadow: 0 0 0 1px rgba(126,231,216,0.15) !important;
 }
 
 
-/* Buttons */
+/* =========================================================
+   SELECT BOXES
+   ========================================================= */
+
+.stSelectbox div[data-baseweb="select"] > div {
+    background: #0d0d0d !important;
+
+    border: 1px solid #292929 !important;
+
+    color: #ffffff !important;
+}
+
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
 
 .stButton > button {
-    background: #111111;
-    color: #ffffff;
-    border: 1px solid #303030;
-    border-radius: 9px;
+    background:
+        linear-gradient(
+            145deg,
+            #151515,
+            #0d0d0d
+        ) !important;
+
+    color: #ffffff !important;
+
+    border: 1px solid #303030 !important;
+    border-radius: 9px !important;
+
     font-weight: 600;
+
+    transition:
+        border-color 0.2s ease,
+        color 0.2s ease,
+        transform 0.2s ease;
 }
 
 .stButton > button:hover {
-    border-color: #7ee7d8;
-    color: #7ee7d8;
+    border-color: #7ee7d8 !important;
+    color: #7ee7d8 !important;
+
+    transform: translateY(-1px);
 }
 
 
-/* Tabs */
+/* =========================================================
+   TABS
+   ========================================================= */
 
 .stTabs [data-baseweb="tab-list"] {
+    gap: 0.35rem;
+
     border-bottom: 1px solid #242424;
 }
 
 .stTabs [data-baseweb="tab"] {
-    color: #888888;
+    color: #777777 !important;
+
+    font-size: 0.85rem;
+    font-weight: 600;
 }
 
 .stTabs [aria-selected="true"] {
@@ -187,25 +414,54 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 }
 
 
-/* Dataframes */
+/* =========================================================
+   DATAFRAMES
+   ========================================================= */
 
 [data-testid="stDataFrame"] {
     border: 1px solid #242424;
     border-radius: 10px;
+    overflow: hidden;
 }
 
 
-/* Links */
+/* =========================================================
+   LINKS
+   ========================================================= */
 
 a {
     color: #7ee7d8 !important;
 }
 
 
-/* Dividers */
+/* =========================================================
+   DIVIDERS
+   ========================================================= */
 
 hr {
     border-color: #242424 !important;
+}
+
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #050505;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #292929;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #3a3a3a;
 }
 
 </style>

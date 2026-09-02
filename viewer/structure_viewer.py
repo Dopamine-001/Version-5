@@ -168,6 +168,11 @@ def render_secondary_structure_3d(
     Beta strands   -> cyan arrows
     Turns          -> amber
     Coils / loops  -> neutral grey trace
+
+    Built with py3Dmol (same rendering path as the main viewer) so the
+    3Dmol library is loaded exactly the way Streamlit's component iframe
+    expects. The previous hand-written <script> version could execute
+    before 3Dmol-min.js finished loading, leaving a blank panel.
     """
     if not pdb_text or not pdb_text.strip():
         return (
@@ -183,58 +188,50 @@ def render_secondary_structure_3d(
     claimed = set(helix_resi) | set(sheet_resi)
     turn_resi = [r for r in turn_resi if r not in claimed]
 
-    json_helix = json.dumps(helix_resi)
-    json_sheet = json.dumps(sheet_resi)
-    json_turn = json.dumps(turn_resi)
-    spin_js = "'y', 1" if spin else "false"
+    viewer = py3Dmol.view(width="100%", height=height)
+    viewer.setBackgroundColor(background)
+    viewer.addModel(pdb_text, "pdb")
+    viewer.setStyle({"model": 0}, {})
 
-    # Unique element id so several viewers can coexist on one page.
-    view_id = "ss_view_%d" % (abs(hash((len(pdb_text), tuple(helix_resi[:32]), spin))) % 10**10)
+    # 1. Baseline: thin grey trace for coils / loops.
+    viewer.setStyle(
+        {"model": 0},
+        {
+            "cartoon": {
+                "color": "#8fa3bf",
+                "style": "trace",
+                "thickness": 0.25,
+                "opacity": 0.85 if show_coils else 0.15,
+            }
+        },
+    )
 
-    coil_opacity = 0.85 if show_coils else 0.15
-    pdb_js = _escape_pdb_for_js(pdb_text)
+    # 2. Alpha helices - pink/red oval ribbons.
+    if helix_resi:
+        viewer.setStyle(
+            {"model": 0, "resi": helix_resi},
+            {"cartoon": {"color": "#FF2A6D", "style": "oval",
+                         "thickness": 0.8, "arrows": False}},
+        )
 
-    return f"""
-<div id="{view_id}" style="width:100%;height:{height}px;position:relative;"></div>
-<script src="https://3Dmol.org/build/3Dmol-min.js"></script>
-<script>
-(function () {{
-  var pdb = `{pdb_js}`;
-  var viewer = $3Dmol.createViewer(
-    document.getElementById("{view_id}"),
-    {{backgroundColor: "{background}"}}
-  );
-  viewer.addModel(pdb, "pdb");
+    # 3. Beta strands - cyan arrows.
+    if sheet_resi:
+        viewer.setStyle(
+            {"model": 0, "resi": sheet_resi},
+            {"cartoon": {"color": "#05D9E8", "style": "arrow",
+                         "arrows": True, "thickness": 0.8}},
+        )
 
-  // 1. Baseline: thin grey trace for coils / loops.
-  viewer.setStyle({{}}, {{cartoon: {{color: '#8fa3bf', style: 'trace',
-      thickness: 0.25, opacity: {coil_opacity}}}}});
+    # 4. Turns - amber.
+    if turn_resi:
+        viewer.setStyle(
+            {"model": 0, "resi": turn_resi},
+            {"cartoon": {"color": "#FFB703", "style": "oval",
+                         "thickness": 0.5}},
+        )
 
-  // 2. Alpha helices - pink/red oval ribbons.
-  var helix = {json_helix};
-  if (helix.length) {{
-    viewer.setStyle({{resi: helix}},
-      {{cartoon: {{color: '#FF2A6D', style: 'oval', thickness: 0.8, arrows: false}}}});
-  }}
+    viewer.zoomTo({"model": 0})
+    viewer.spin("y", 1) if spin else viewer.spin(False)
+    viewer.render()
 
-  // 3. Beta strands - cyan arrows.
-  var sheet = {json_sheet};
-  if (sheet.length) {{
-    viewer.setStyle({{resi: sheet}},
-      {{cartoon: {{color: '#05D9E8', style: 'arrow', arrows: true, thickness: 0.8}}}});
-  }}
-
-  // 4. Turns - amber.
-  var turn = {json_turn};
-  if (turn.length) {{
-    viewer.setStyle({{resi: turn}},
-      {{cartoon: {{color: '#FFB703', style: 'oval', thickness: 0.5}}}});
-  }}
-
-  viewer.zoomTo();
-  viewer.spin({spin_js});
-  viewer.render();
-  window.addEventListener("resize", function () {{ viewer.resize(); }});
-}})();
-</script>
-"""
+    return viewer._make_html()

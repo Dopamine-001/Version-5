@@ -54,7 +54,7 @@ def show_protein(protein_query: str) -> None:
         return
 
     protein = normalize_uniprot_record(record)
-     = protein[""]
+    sequence = protein["sequence"]
 
     # NCBI information is retrieved using the gene symbol from UniProt.
     ncbi_info = get_ncbi_gene_info(protein["gene"])
@@ -657,7 +657,34 @@ def _render_primary_structure_tab(
     protein: dict,
     sequence: str,
 ) -> None:
-        st.markdown(
+    with st.expander("🧬 View Coding DNA / Nucleotide Sequence (CDS)", expanded=False):
+        nuc_info = fetch_cds_nucleotide_sequence(protein)
+
+        if nuc_info["sequence"]:
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Nucleotide Length", f"{nuc_info['length']} bp")
+            c2.metric("GC Content", f"{nuc_info['gc_content']}%")
+            c3.metric("NCBI Accession", nuc_info["accession"])
+
+            st.caption(f"**Record:** {nuc_info['description']}")
+            st.text_area(
+                "FASTA Sequence",
+                f">{nuc_info['accession']} CDS\n{nuc_info['sequence']}",
+                height=180,
+            )
+            st.download_button(
+                "Download Nucleotide FASTA",
+                data=f">{nuc_info['accession']}\n{nuc_info['sequence']}",
+                file_name=f"{nuc_info['accession']}_cds.fasta",
+                mime="text/plain",
+            )
+        else:
+            st.info(
+                "No directly linked CDS/nucleotide accession found in "
+                "cross-references for this record."
+            )
+
+    st.markdown(
         '<div class="section-title">Primary structure</div>',
         unsafe_allow_html=True,
     )
@@ -704,31 +731,6 @@ def _render_primary_structure_tab(
         height=420,
         hide_index=True,
     )
-# --- NEW: Nucleotide Sequence Expander ---
-    with st.expander("🧬 View Coding DNA / Nucleotide Sequence (CDS)", expanded=False):
-            # Note: Ensure 'protein_data' matches the variable name you use for the UniProt dictionary in this file
-        nuc_info = fetch_cds_nucleotide_sequence(protein_data) 
-            
-        if nuc_info["sequence"]:
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Nucleotide Length", f"{nuc_info['length']} bp")
-            c2.metric("GC Content", f"{nuc_info['gc_content']}%")
-            c3.metric("NCBI Accession", nuc_info["accession"])
-                
-            st.caption(f"**Record:** {nuc_info['description']}")
-            st.text_area(
-                "FASTA Sequence",
-                f">{nuc_info['accession']} CDS\n{nuc_info['sequence']}",
-                height=180
-            )
-            st.download_button(
-                "Download Nucleotide FASTA",
-                data=f">{nuc_info['accession']}\n{nuc_info['sequence']}",
-                file_name=f"{nuc_info['accession']}_cds.fasta",
-                mime="text/plain"
-            )
-        else:
-            st.info("No directly linked CDS/nucleotide accession found in cross-references for this record.")
 
 
 # ============================================================
@@ -742,16 +744,24 @@ def _render_3d_structure_tab(
     plddt,
     sequence: str,
 ) -> None:
-        if not pdb_text:
-            st.warning(
-                "No AlphaFold prediction was returned for this accession."
-            )
-            return
-    
-        st.markdown(
-            '<div class="section-title">Interactive AlphaFold structure</div>',
-            unsafe_allow_html=True,
-        )
+    if not pdb_text:
+        st.warning("No AlphaFold prediction was returned for this accession.")
+        return
+
+    st.markdown("### Secondary Structure Highlighting")
+    col_h, col_s, col_l = st.columns(3)
+    col_h.markdown("🔴 **α-Helices:** Vibrant Pink/Red")
+    col_s.markdown("🔵 **β-Sheets:** Bright Cyan")
+    col_l.markdown("⚪ **Coils / Loops:** Neutral Gray")
+
+    sec_struct = extract_secondary_structure_ranges(protein)
+    html_3d = render_secondary_structure_3d(pdb_text, sec_struct)
+    components.html(html_3d, height=520)
+
+    st.markdown(
+        '<div class="section-title">Interactive AlphaFold structure</div>',
+        unsafe_allow_html=True,
+    )
 
     st.caption(
         "Drag to rotate, scroll to zoom, and use the controls below to "
@@ -876,7 +886,6 @@ def _render_3d_structure_tab(
 
     if af_meta:
         with st.expander("AlphaFold metadata"):
-
             c1, c2 = st.columns(2)
 
             with c1:
@@ -908,21 +917,6 @@ def _render_3d_structure_tab(
                         f"**Model Created**  \n"
                         f"{af_meta['modelCreatedDate']}"
                     )
-    # --- NEW: Secondary Structure 3D Rendering ---
-    st.markdown("### 🧬 Secondary Structure Highlighting")
-        
-        # Color legend for the user
-    col_h, col_s, col_l = st.columns(3)
-    col_h.markdown("🔴 **α-Helices:** Vibrant Pink/Red")
-    col_s.markdown("🔵 **β-Sheets:** Bright Cyan")
-    col_l.markdown("⚪ **Coils / Loops:** Neutral Gray")
-    # Extract structural ranges and render
-    sec_struct = extract_secondary_structure_ranges(protein_data)
-    html_3d = render_secondary_structure_3d(pdb_data, sec_struct)
-        
-    # Display the custom HTML in Streamlit
-    components.html(html_3d, height=520)
-
 
 
 # ============================================================

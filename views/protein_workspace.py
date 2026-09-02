@@ -742,7 +742,21 @@ def _render_3d_structure_tab(
     plddt,
     sequence: str,
 ) -> None:
+# --- NEW: Secondary Structure 3D Rendering ---
+    st.markdown("###  Secondary Structure Highlighting")
+        
+    # Color legend for the user
+    col_h, col_s, col_l = st.columns(3)
+    col_h.markdown("🔴 **α-Helices:** Vibrant Pink/Red")
+    col_s.markdown("🔵 **β-Sheets:** Bright Cyan")
+    col_l.markdown("⚪ **Coils / Loops:** Neutral Gray")
 
+    # Extract structural ranges and render
+    sec_struct = extract_secondary_structure_ranges(protein_data)
+    html_3d = render_secondary_structure_3d(pdb_data, sec_struct)
+        
+    # Display the custom HTML in Streamlit
+    components.html(html_3d, height=520)
     if not pdb_text:
         st.warning(
             "No AlphaFold prediction was returned for this accession."

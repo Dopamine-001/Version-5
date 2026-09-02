@@ -4,6 +4,8 @@ import xml.etree.ElementTree as ET
 
 from core.helpers import safe_get
 
+import requests
+from Bio import Entrez
 
 NCBI_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 
@@ -497,3 +499,62 @@ def get_ncbi_gene_info(protein_name):
             "snp_ids": [],
             "clinvar_ids": [],
         }
+
+
+def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
+    """
+    Extracts cross-referenced EMBL/GenBank/RefSeq CDS nucleotide sequence 
+    associated with the UniProt protein record.
+    """
+    results = {
+        "accession": None,
+        "sequence": "",
+        "length": 0,
+        "gc_content": 0.0,
+        "description": ""
+    }
+    
+    # Check UniProt cross-references for EMBL or RefSeq nucleotide IDs
+    uni_refs = uniprot_data.get("uniProtKBCrossReferences", [])
+    nuc_id = None
+    
+    for ref in uni_refs:
+        db = ref.get("database")
+        if db == "EMBL":
+            # Typical EMBL properties contain protein_id and genomic/mRNA accession
+            props = {p.get("key"): p.get("value") for p in ref.get("properties", [])}
+            nuc_id = props.get("ProteinId") or ref.get("id")
+            break
+        elif db == "RefSeq":
+            props = {p.get("key"): p.get("value") for p in ref.get("properties", [])}
+            nuc_id = props.get("nucleotide sequence ID") or ref.get("id")
+            if nuc_id:
+                break
+                
+    if not nuc_id:
+        return results
+
+    try:
+        # Fetch fasta from NCBI E-utilities
+        url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id={nuc_id}&rettype=fasta&retmode=text"
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 200 and resp.text.startswith(">"):
+            lines = resp.text.strip().split("\n")
+            desc = lines[0][1:]
+            seq = "".join(lines[1:]).upper()
+            
+            gc = 0.0
+            if seq:
+                gc = round(((seq.count("G") + seq.count("C")) / len(seq)) * 100, 2)
+                
+            return {
+                "accession": nuc_id,
+                "sequence": seq,
+                "length": len(seq),
+                "gc_content": gc,
+                "description": desc
+            }
+    except Exception:
+        pass
+
+    return results

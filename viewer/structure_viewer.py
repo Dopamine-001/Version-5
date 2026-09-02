@@ -1,6 +1,7 @@
 """Interactive py3Dmol renderer for AlphaFold PDB structures."""
 from __future__ import annotations
 
+import json
 from typing import Optional
 
 import py3Dmol
@@ -130,42 +131,110 @@ def render_structure(
     return viewer._make_html()
 
 
-def render_secondary_structure_3d(pdb_text: str, sec_struct: dict, width: int = 700, height: int = 500) -> str:
+def _escape_pdb_for_js(pdb_text: str) -> str:
+    """Make a PDB string safe inside a JS template literal."""
+    return (
+        pdb_text.replace("\\", "\\\\")
+        .replace("`", "\\`")
+        .replace("${", "\\${")
+    )
+
+
+def _ranges_to_resi(ranges) -> list:
+    """Flatten [{'start':a,'end':b}, ...] into a sorted unique residue list."""
+    resi = []
+    for item in ranges or []:
+        try:
+            start, end = int(item["start"]), int(item["end"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if end < start:
+            start, end = end, start
+        resi.extend(range(start, end + 1))
+    return sorted(set(resi))
+
+
+def render_secondary_structure_3d(
+    pdb_text: str,
+    sec_struct: dict,
+    height: int = 560,
+    spin: bool = False,
+    show_coils: bool = True,
+    background: str = "#061126",
+) -> str:
+    """Cartoon view colour-coded by secondary structure element.
+
+    Alpha helices  -> pink/red ovals
+    Beta strands   -> cyan arrows
+    Turns          -> amber
+    Coils / loops  -> neutral grey trace
     """
-    Renders 3D structure with explicit ribbon coloring for secondary structures.
-    """
-    # Extract residue numbers into lists
-    helix_resi = []
-    for h in sec_struct.get("helices", []):
-        helix_resi.extend(range(h["start"], h["end"] + 1))
-        
-    sheet_resi = []
-    for s in sec_struct.get("sheets", []):
-        sheet_resi.extend(range(s["start"], s["end"] + 1))
-        
-    # Generate the HTML and JS for 3Dmol.org
-    html = f"""
-    <div id="viewport" style="width: 100%; height: {height}px; position: relative;"></div>
-    <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
-    <script>
-        let viewer = $3Dmol.createViewer(document.getElementById('viewport'), {{backgroundColor: 'white'}});
-        viewer.addModel(`{pdb_text}`, "pdb");
-        
-        // 1. Set the default background ribbon (Coils/Loops) to gray
-        viewer.setStyle({{}}, {{cartoon: {{color: '#E0E0E0', opacity: 0.8}}}});
-        
-        // 2. Color Alpha-Helices (Vibrant Pink/Red)
-        if ({helix_resi}.length > 0) {{
-            viewer.setStyle({{resi: {helix_resi}}}, {{cartoon: {{color: '#FF2A6D', style: 'oval', thickness: 0.7}}}});
-        }}
-        
-        // 3. Color Beta-Sheets (Bright Cyan with arrows)
-        if ({sheet_resi}.length > 0) {{
-            viewer.setStyle({{resi: {sheet_resi}}}, {{cartoon: {{color: '#05D9E8', style: 'rectangle', arrows: true, thickness: 0.7}}}});
-        }}
-        
-        viewer.zoomTo();
-        viewer.render();
-    </script>
-    """
-    return html
+    if not pdb_text or not pdb_text.strip():
+        return (
+            "<div style='padding:2rem;color:#d7e8ff;font-family:Arial'>"
+            "No PDB structure available.</div>"
+        )
+
+    sec_struct = sec_struct or {}
+    helix_resi = _ranges_to_resi(sec_struct.get("helices"))
+    sheet_resi = _ranges_to_resi(sec_struct.get("sheets"))
+    turn_resi = _ranges_to_resi(sec_struct.get("turns"))
+    # A residue belongs to one element only; helices/sheets win over turns.
+    claimed = set(helix_resi) | set(sheet_resi)
+    turn_resi = [r for r in turn_resi if r not in claimed]
+
+    json_helix = json.dumps(helix_resi)
+    json_sheet = json.dumps(sheet_resi)
+    json_turn = json.dumps(turn_resi)
+    spin_js = "'y', 1" if spin else "false"
+
+    # Unique element id so several viewers can coexist on one page.
+    view_id = "ss_view_%d" % (abs(hash((len(pdb_text), tuple(helix_resi[:32]), spin))) % 10**10)
+
+    coil_opacity = 0.85 if show_coils else 0.15
+    pdb_js = _escape_pdb_for_js(pdb_text)
+
+    return f"""
+<div id="{view_id}" style="width:100%;height:{height}px;position:relative;"></div>
+<script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+<script>
+(function () {{
+  var pdb = `{pdb_js}`;
+  var viewer = $3Dmol.createViewer(
+    document.getElementById("{view_id}"),
+    {{backgroundColor: "{background}"}}
+  );
+  viewer.addModel(pdb, "pdb");
+
+  // 1. Baseline: thin grey trace for coils / loops.
+  viewer.setStyle({{}}, {{cartoon: {{color: '#8fa3bf', style: 'trace',
+      thickness: 0.25, opacity: {coil_opacity}}}}});
+
+  // 2. Alpha helices - pink/red oval ribbons.
+  var helix = {json_helix};
+  if (helix.length) {{
+    viewer.setStyle({{resi: helix}},
+      {{cartoon: {{color: '#FF2A6D', style: 'oval', thickness: 0.8, arrows: false}}}});
+  }}
+
+  // 3. Beta strands - cyan arrows.
+  var sheet = {json_sheet};
+  if (sheet.length) {{
+    viewer.setStyle({{resi: sheet}},
+      {{cartoon: {{color: '#05D9E8', style: 'arrow', arrows: true, thickness: 0.8}}}});
+  }}
+
+  // 4. Turns - amber.
+  var turn = {json_turn};
+  if (turn.length) {{
+    viewer.setStyle({{resi: turn}},
+      {{cartoon: {{color: '#FFB703', style: 'oval', thickness: 0.5}}}});
+  }}
+
+  viewer.zoomTo();
+  viewer.spin({spin_js});
+  viewer.render();
+  window.addEventListener("resize", function () {{ viewer.resize(); }});
+}})();
+</script>
+"""

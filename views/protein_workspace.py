@@ -12,9 +12,8 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from core.ncbi import fetch_cds_nucleotide_sequence
-from analysis.structure import extract_secondary_structure_ranges
+from analysis.structure import secondary_structure_with_fallback
 from viewer.structure_viewer import render_secondary_structure_3d
-import streamlit.components.v1 as components
 
 from analysis.sequence import hydrophobicity_table, sequence_properties
 from analysis.structure import calculate_ramachandran_angles
@@ -748,16 +747,75 @@ def _render_3d_structure_tab(
         st.warning("No AlphaFold prediction was returned for this accession.")
         return
 
-    st.markdown("### Secondary Structure Highlighting")
-    col_h, col_s, col_l = st.columns(3)
-    col_h.markdown("🔴 **α-Helices:** Vibrant Pink/Red")
-    col_s.markdown("🔵 **β-Sheets:** Bright Cyan")
-    col_l.markdown("⚪ **Coils / Loops:** Neutral Gray")
+    acc = protein["accession"]
 
-    sec_struct = extract_secondary_structure_ranges(protein)
-    html_3d = render_secondary_structure_3d(pdb_text, sec_struct)
-    components.html(html_3d, height=520)
+    view_mode = st.radio(
+        "Structure view",
+        ["Main 3D structure", "Secondary structure"],
+        horizontal=True,
+        key=f"view_mode_{acc}",
+        help=(
+            "Switch between the configurable atom/fold viewer and the "
+            "secondary-structure colour map."
+        ),
+    )
 
+    # ------------------------------------------------------------------
+    # SECONDARY STRUCTURE VIEW
+    # ------------------------------------------------------------------
+    if view_mode == "Secondary structure":
+        st.markdown(
+            '<div class="section-title">Secondary structure map</div>',
+            unsafe_allow_html=True,
+        )
+
+        sec_struct = secondary_structure_with_fallback(protein, pdb_text)
+
+        col_h, col_s, col_t, col_l = st.columns(4)
+        col_h.markdown("🔴 **α-Helices** &nbsp;`#FF2A6D`", unsafe_allow_html=True)
+        col_s.markdown("🔵 **β-Sheets** &nbsp;`#05D9E8`", unsafe_allow_html=True)
+        col_t.markdown("🟡 **Turns** &nbsp;`#FFB703`", unsafe_allow_html=True)
+        col_l.markdown("⚪ **Coils / loops** &nbsp;`#8FA3BF`", unsafe_allow_html=True)
+
+        opt1, opt2 = st.columns(2)
+        ss_spin = opt1.toggle("Spin structure", value=False, key=f"ss_spin_{acc}")
+        show_coils = opt2.toggle("Show coils", value=True, key=f"ss_coils_{acc}")
+
+        components.html(
+            render_secondary_structure_3d(
+                pdb_text,
+                sec_struct,
+                height=560,
+                spin=ss_spin,
+                show_coils=show_coils,
+            ),
+            height=580,
+            scrolling=False,
+        )
+
+        helix_res = sum(h["end"] - h["start"] + 1 for h in sec_struct["helices"])
+        sheet_res = sum(x["end"] - x["start"] + 1 for x in sec_struct["sheets"])
+        total = len(sequence) or 1
+
+        m1, m2, m3 = st.columns(3)
+        m1.metric("α-Helix residues", f"{helix_res} ({helix_res / total:.0%})")
+        m2.metric("β-Strand residues", f"{sheet_res} ({sheet_res / total:.0%})")
+        m3.metric("Elements", f"{len(sec_struct['helices'])} H / {len(sec_struct['sheets'])} E")
+
+        if sec_struct.get("source") == "geometry":
+            st.caption(
+                "UniProt has no experimental helix/strand annotation for this "
+                "entry, so elements were assigned from the AlphaFold model's "
+                "backbone phi-psi angles."
+            )
+        else:
+            st.caption("Elements taken from UniProt experimental annotations.")
+
+        return
+
+    # ------------------------------------------------------------------
+    # MAIN 3D STRUCTURE VIEW
+    # ------------------------------------------------------------------
     st.markdown(
         '<div class="section-title">Interactive AlphaFold structure</div>',
         unsafe_allow_html=True,

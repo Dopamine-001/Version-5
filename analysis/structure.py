@@ -48,7 +48,13 @@ def extract_secondary_structure_ranges(uniprot_data: dict) -> dict:
     """
     Extracts residue ranges for Alpha-helices and Beta-strands/sheets from UniProt features.
     """
-    features = uniprot_data.get("features", [])
+    # normalize_uniprot_record() stores the raw feature list under
+    # "all_features"; raw UniProt JSON uses "features". Accept both.
+    features = (
+        uniprot_data.get("features")
+        or uniprot_data.get("all_features")
+        or []
+    )
     helices = []
     strands = []
     turns = []
@@ -73,3 +79,66 @@ def extract_secondary_structure_ranges(uniprot_data: dict) -> dict:
         "sheets": strands,
         "turns": turns
     }
+
+
+# ------------------------------------------------------------------
+# Geometric secondary-structure fallback
+# ------------------------------------------------------------------
+# UniProt only lists HELIX / STRAND features for proteins with an
+# experimental structure. For AlphaFold-only entries the feature list is
+# empty, which used to make the secondary-structure viewer all grey.
+# This assigns helix / strand from the model's own phi-psi angles.
+
+@st.cache_data(show_spinner=False)
+def assign_secondary_structure_from_pdb(pdb_text: str) -> dict:
+    phi_angles, psi_angles, residue_numbers = calculate_ramachandran_angles(pdb_text)
+
+    labels: list[tuple[int, str]] = []
+    for phi, psi, resi in zip(phi_angles, psi_angles, residue_numbers):
+        if -160.0 <= phi <= -20.0 and -90.0 <= psi <= 10.0:
+            labels.append((resi, "H"))          # right-handed alpha helix
+        elif -180.0 <= phi <= -45.0 and (90.0 <= psi <= 180.0 or -180.0 <= psi <= -170.0):
+            labels.append((resi, "E"))          # extended / beta strand
+        else:
+            labels.append((resi, "C"))
+
+    helices: list[dict] = []
+    sheets: list[dict] = []
+
+    run_label = None
+    run_start = None
+    prev_resi = None
+
+    def close_run() -> None:
+        if run_label is None or run_start is None:
+            return
+        length = prev_resi - run_start + 1
+        item = {"start": run_start, "end": prev_resi, "description": "predicted"}
+        # Minimum lengths keep single noisy residues out of the render.
+        if run_label == "H" and length >= 4:
+            helices.append(item)
+        elif run_label == "E" and length >= 3:
+            sheets.append(item)
+
+    for resi, label in labels:
+        contiguous = prev_resi is not None and resi == prev_resi + 1
+        if label != run_label or not contiguous:
+            close_run()
+            run_label, run_start = label, resi
+        prev_resi = resi
+    close_run()
+
+    return {"helices": helices, "sheets": sheets, "turns": [], "source": "geometry"}
+
+
+def secondary_structure_with_fallback(uniprot_data: dict, pdb_text: str) -> dict:
+    """UniProt annotations when available, otherwise geometric assignment."""
+    annotated = extract_secondary_structure_ranges(uniprot_data)
+    if annotated.get("helices") or annotated.get("sheets"):
+        annotated["source"] = "uniprot"
+        return annotated
+    try:
+        return assign_secondary_structure_from_pdb(pdb_text)
+    except Exception:
+        annotated["source"] = "uniprot"
+        return annotated

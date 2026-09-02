@@ -128,3 +128,41 @@ def render_structure(
     viewer.render()
 
     return viewer._make_html()
+
+
+def render_secondary_structure_3d(pdb_text: str, sec_struct: dict, width: int = 700, height: int = 500) -> str:
+    """
+    Renders 3D structure with explicit, distinct coloring:
+    - Alpha Helices: Vibrant Red/Magenta (#FF1493)
+    - Beta Sheets: Bright Cyan/Yellow (#00E5FF)
+    - Loops/Coils: Semi-transparent Gray (#CCCCCC)
+    """
+    helix_resi = []
+    for h in sec_struct.get("helices", []):
+        helix_resi.extend(range(h["start"], h["end"] + 1))
+        
+    sheet_resi = []
+    for s in sec_struct.get("sheets", []):
+        sheet_resi.extend(range(s["start"], s["end"] + 1))
+        
+    html = f"""
+    <div id="viewport" style="width: 100%; height: {height}px; position: relative;"></div>
+    <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+    <script>
+        let viewer = $3Dmol.createViewer(document.getElementById('viewport'), {{backgroundColor: 'white'}});
+        viewer.addModel(`{pdb_text}`, "pdb");
+        
+        // Default cartoon representation for backbone/loops
+        viewer.setStyle({{}}, {{cartoon: {{color: '#E0E0E0', opacity: 0.7}}}});
+        
+        // Explicitly color Alpha Helices
+        viewer.setStyle({{resi: {helix_resi}}}, {{cartoon: {{color: '#FF2A6D', style: 'oval', thickness: 0.6}}}});
+        
+        // Explicitly color Beta Sheets
+        viewer.setStyle({{resi: {sheet_resi}}}, {{cartoon: {{color: '#05D9E8', style: 'rectangle', arrows: true, thickness: 0.7}}}});
+        
+        viewer.zoomTo();
+        viewer.render();
+    </script>
+    """
+    return html

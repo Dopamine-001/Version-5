@@ -41,3 +41,35 @@ def calculate_ramachandran_angles(pdb_text: str) -> tuple[list[float], list[floa
         collect(CaPPBuilder())
 
     return phi_angles, psi_angles, residue_numbers
+
+
+
+def extract_secondary_structure_ranges(uniprot_data: dict) -> dict:
+    """
+    Extracts residue ranges for Alpha-helices and Beta-strands/sheets from UniProt features.
+    """
+    features = uniprot_data.get("features", [])
+    helices = []
+    strands = []
+    turns = []
+    
+    for feat in features:
+        feat_type = feat.get("type", "").lower()
+        location = feat.get("location", {})
+        start = location.get("start", {}).get("value")
+        end = location.get("end", {}).get("value")
+        
+        if start and end:
+            item = {"start": int(start), "end": int(end), "description": feat.get("description", "")}
+            if "helix" in feat_type:
+                helices.append(item)
+            elif "strand" in feat_type or "beta" in feat_type:
+                strands.append(item)
+            elif "turn" in feat_type:
+                turns.append(item)
+                
+    return {
+        "helices": helices,
+        "sheets": strands,
+        "turns": turns
+    }

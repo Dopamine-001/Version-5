@@ -162,76 +162,232 @@ def render_secondary_structure_3d(
     show_coils: bool = True,
     background: str = "#061126",
 ) -> str:
-    """Cartoon view colour-coded by secondary structure element.
+    """Render a detailed 3D secondary-structure view.
 
-    Alpha helices  -> pink/red ovals
-    Beta strands   -> cyan arrows
-    Turns          -> amber
-    Coils / loops  -> neutral grey trace
-
-    Built with py3Dmol (same rendering path as the main viewer) so the
-    3Dmol library is loaded exactly the way Streamlit's component iframe
-    expects. The previous hand-written <script> version could execute
-    before 3Dmol-min.js finished loading, leaving a blank panel.
+    α-helices -> red/pink cartoon
+    β-sheets  -> cyan directional arrows
+    turns     -> amber cartoon
+    coils     -> neutral grey trace
+    ligands   -> green sticks
     """
+
     if not pdb_text or not pdb_text.strip():
         return (
-            "<div style='padding:2rem;color:#d7e8ff;font-family:Arial'>"
-            "No PDB structure available.</div>"
+            "<div style='padding:2rem;color:#d7e8ff;"
+            "font-family:Arial'>"
+            "No PDB structure available."
+            "</div>"
         )
 
     sec_struct = sec_struct or {}
-    helix_resi = _ranges_to_resi(sec_struct.get("helices"))
-    sheet_resi = _ranges_to_resi(sec_struct.get("sheets"))
-    turn_resi = _ranges_to_resi(sec_struct.get("turns"))
-    # A residue belongs to one element only; helices/sheets win over turns.
-    claimed = set(helix_resi) | set(sheet_resi)
-    turn_resi = [r for r in turn_resi if r not in claimed]
 
-    viewer = py3Dmol.view(width="100%", height=height)
+    helix_resi = _ranges_to_resi(
+        sec_struct.get("helices")
+    )
+
+    sheet_resi = _ranges_to_resi(
+        sec_struct.get("sheets")
+    )
+
+    turn_resi = _ranges_to_resi(
+        sec_struct.get("turns")
+    )
+
+    # ---------------------------------------------------------
+    # Prevent residues from being assigned to two categories.
+    # Priority:
+    # helix > sheet > turn > coil
+    # ---------------------------------------------------------
+
+    helix_set = set(helix_resi)
+    sheet_set = set(sheet_resi)
+
+    turn_resi = [
+        r for r in turn_resi
+        if r not in helix_set
+        and r not in sheet_set
+    ]
+
+    claimed = (
+        helix_set
+        | sheet_set
+        | set(turn_resi)
+    )
+
+    viewer = py3Dmol.view(
+        width="100%",
+        height=height,
+    )
+
     viewer.setBackgroundColor(background)
-    viewer.addModel(pdb_text, "pdb")
-    viewer.setStyle({"model": 0}, {})
 
-    # 1. Baseline: thin grey trace for coils / loops.
+    viewer.addModel(
+        pdb_text,
+        "pdb",
+    )
+
+    selection = {
+        "model": 0,
+    }
+
+    # ---------------------------------------------------------
+    # Start with a clean model.
+    # ---------------------------------------------------------
+
     viewer.setStyle(
-        {"model": 0},
+        selection,
+        {},
+    )
+
+    # ---------------------------------------------------------
+    # COILS / LOOPS
+    # ---------------------------------------------------------
+
+    if show_coils:
+        viewer.setStyle(
+            {
+                "model": 0,
+                "hetflag": False,
+                "resi": [
+                    r
+                    for r in range(
+                        1,
+                        max(
+                            helix_resi
+                            + sheet_resi
+                            + turn_resi
+                            + [1]
+                        )
+                        + 1,
+                    )
+                    if r not in claimed
+                ],
+            },
+            {
+                "cartoon": {
+                    "color": "#8FA3BF",
+                    "style": "trace",
+                    "thickness": 0.35,
+                    "opacity": 0.90,
+                }
+            },
+        )
+
+    # ---------------------------------------------------------
+    # ALPHA HELICES
+    # ---------------------------------------------------------
+
+    if helix_resi:
+        viewer.setStyle(
+            {
+                "model": 0,
+                "resi": helix_resi,
+            },
+            {
+                "cartoon": {
+                    "color": "#FF2A6D",
+                    "style": "oval",
+                    "thickness": 0.9,
+                    "arrows": False,
+                    "opacity": 1.0,
+                }
+            },
+        )
+
+    # ---------------------------------------------------------
+    # BETA SHEETS
+    # ---------------------------------------------------------
+
+    if sheet_resi:
+        viewer.setStyle(
+            {
+                "model": 0,
+                "resi": sheet_resi,
+            },
+            {
+                "cartoon": {
+                    "color": "#05D9E8",
+                    "style": "arrow",
+                    "thickness": 0.9,
+                    "arrows": True,
+                    "opacity": 1.0,
+                }
+            },
+        )
+
+    # ---------------------------------------------------------
+    # TURNS
+    # ---------------------------------------------------------
+
+    if turn_resi:
+        viewer.setStyle(
+            {
+                "model": 0,
+                "resi": turn_resi,
+            },
+            {
+                "cartoon": {
+                    "color": "#FFB703",
+                    "style": "oval",
+                    "thickness": 0.55,
+                    "opacity": 0.95,
+                }
+            },
+        )
+
+    # ---------------------------------------------------------
+    # LIGANDS / HETEROATOMS
+    # ---------------------------------------------------------
+
+    viewer.addStyle(
         {
-            "cartoon": {
-                "color": "#8fa3bf",
-                "style": "trace",
-                "thickness": 0.25,
-                "opacity": 0.85 if show_coils else 0.15,
+            "model": 0,
+            "hetflag": True,
+        },
+        {
+            "stick": {
+                "radius": 0.18,
+                "colorscheme": "greenCarbon",
+            },
+            "sphere": {
+                "scale": 0.22,
+            },
+        },
+    )
+
+    # ---------------------------------------------------------
+    # WATER
+    # ---------------------------------------------------------
+
+    viewer.setStyle(
+        {
+            "model": 0,
+            "resn": "HOH",
+        },
+        {
+            "sphere": {
+                "scale": 0.18,
+                "color": "#6EC6FF",
+                "opacity": 0.45,
             }
         },
     )
 
-    # 2. Alpha helices - pink/red oval ribbons.
-    if helix_resi:
-        viewer.setStyle(
-            {"model": 0, "resi": helix_resi},
-            {"cartoon": {"color": "#FF2A6D", "style": "oval",
-                         "thickness": 0.8, "arrows": False}},
-        )
+    # ---------------------------------------------------------
+    # FRAME THE COMPLETE STRUCTURE
+    # ---------------------------------------------------------
 
-    # 3. Beta strands - cyan arrows.
-    if sheet_resi:
-        viewer.setStyle(
-            {"model": 0, "resi": sheet_resi},
-            {"cartoon": {"color": "#05D9E8", "style": "arrow",
-                         "arrows": True, "thickness": 0.8}},
-        )
+    viewer.zoomTo(selection)
 
-    # 4. Turns - amber.
-    if turn_resi:
-        viewer.setStyle(
-            {"model": 0, "resi": turn_resi},
-            {"cartoon": {"color": "#FFB703", "style": "oval",
-                         "thickness": 0.5}},
-        )
+    # ---------------------------------------------------------
+    # Spin
+    # ---------------------------------------------------------
 
-    viewer.zoomTo({"model": 0})
-    viewer.spin("y", 1) if spin else viewer.spin(False)
+    if spin:
+        viewer.spin("y", 1)
+    else:
+        viewer.spin(False)
+
     viewer.render()
 
     return viewer._make_html()

@@ -503,56 +503,129 @@ def get_ncbi_gene_info(protein_name):
 
 def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
     """
-    Extracts cross-referenced EMBL/GenBank/RefSeq CDS nucleotide sequence 
-    associated with the UniProt protein record.
+    Fetch the nucleotide CDS sequence associated with a UniProt protein.
+
+    Uses UniProt cross-references to identify an EMBL/RefSeq nucleotide
+    accession and retrieves the corresponding sequence from NCBI.
     """
-    results = {
+
+    result = {
         "accession": None,
         "sequence": "",
         "length": 0,
         "gc_content": 0.0,
         "description": ""
     }
-    
-    # Check UniProt cross-references for EMBL or RefSeq nucleotide IDs
-    uni_refs = uniprot_data.get("uniProtKBCrossReferences", [])
-    nuc_id = None
-    
-    for ref in uni_refs:
-        db = ref.get("database")
-        if db == "EMBL":
-            # Typical EMBL properties contain protein_id and genomic/mRNA accession
-            props = {p.get("key"): p.get("value") for p in ref.get("properties", [])}
-            nuc_id = props.get("ProteinId") or ref.get("id")
-            break
-        elif db == "RefSeq":
-            props = {p.get("key"): p.get("value") for p in ref.get("properties", [])}
-            nuc_id = props.get("nucleotide sequence ID") or ref.get("id")
-            if nuc_id:
+
+    cross_refs = uniprot_data.get("uniProtKBCrossReferences", [])
+
+    nucleotide_id = None
+
+    # ---------------------------------------------------------
+    # Find a suitable EMBL / RefSeq nucleotide accession
+    # ---------------------------------------------------------
+    for ref in cross_refs:
+        database = ref.get("database", "")
+        ref_id = ref.get("id", "")
+        properties = {
+            item.get("key"): item.get("value")
+            for item in ref.get("properties", [])
+        }
+
+        if database == "RefSeq":
+            nucleotide_id = (
+                properties.get("nucleotide sequence ID")
+                or properties.get("NucleotideSequenceID")
+                or ref_id
+            )
+
+            if nucleotide_id:
                 break
-                
-    if not nuc_id:
-        return results
+
+        elif database == "EMBL":
+            # Prefer nucleotide accession rather than ProteinId
+            nucleotide_id = (
+                properties.get("NucleotideSequenceID")
+                or properties.get("Nucleotide sequence ID")
+                or ref_id
+            )
+
+            if nucleotide_id:
+                break
+
+    if not nucleotide_id:
+        return result
+
+    # ---------------------------------------------------------
+    # Query NCBI
+    # ---------------------------------------------------------
+    url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+
+    params = {
+        "db": "nuccore",
+        "id": nucleotide_id,
+        "rettype": "fasta",
+        "retmode": "text"
+    }
 
     try:
-        # Fetch fasta from NCBI E-utilities
-        url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id={nuc_id}&rettype=fasta&retmode=text"
-        resp = requests.get(url, timeout=10)
-        if resp.status_code == 200 and resp.text.startswith(">"):
-            lines = resp.text.strip().split("\n")
-            desc = lines[0][1:]
-            seq = "".join(lines[1:]).upper()
-            
-            gc = 0.0
-            if seq:
-                gc = round(((seq.count("G") + seq.count("C")) / len(seq)) * 100, 2)
-                
-            return {
-                "accession": nuc_id,
-                "sequence": seq,
-                "length": len(seq),
-                "gc_content": gc,
-                "description": desc
+        response = requests.get(
+            url,
+            params=params,
+            timeout=15
+        )
+
+        response.raise_for_status()
+
+        fasta = response.text.strip()
+
+        if not fasta.startswith(">"):
+            return result
+
+        # -----------------------------------------------------
+        # Parse FASTA
+        # -----------------------------------------------------
+        lines = fasta.splitlines()
+
+        description = lines[0][1:].strip()
+
+        sequence = "".join(
+            line.strip()
+            for line in lines[1:]
+            if line.strip()
+        ).upper()
+
+        # Keep only valid DNA characters
+        sequence = "".join(
+            base for base in sequence
+            if base in "ACGTN"
+        )
+
+        if not sequence:
+            return result
+
+        # -----------------------------------------------------
+        # Calculate GC content
+        # -----------------------------------------------------
+        gc_count = sequence.count("G") + sequence.count("C")
+        gc_content = round(
+            (gc_count / len(sequence)) * 100,
+            2
+        )
+
+        return {
+            "accession": nucleotide_id,
+            "sequence": sequence,
+            "length": len(sequence),
+            "gc_content": gc_content,
+            "description": description
+        }
+
+    except requests.RequestException:
+        return result
+
+    except Exception:
+        return result
             }
     except Exception:
         pass

@@ -1,237 +1,144 @@
-"""Interactive py3Dmol renderer for AlphaFold PDB structures."""
+"""
+Structure-derived analysis that needs a full Biopython parse of the PDB
+(as opposed to core.alphafold's cheap line-scanning readers).
+"""
+
 from __future__ import annotations
 
-import json
-from typing import Optional
+import io
+import math
 
-import py3Dmol
-
-
-COLOR_SCHEMES = {
-    "Spectrum": "spectrum",
-    "Chain": "chain",
-    "Secondary structure": "ssPyMOL",
-}
+import streamlit as st
+from Bio.PDB import PDBParser, PPBuilder
 
 
-def _atom_style(representation: str, color_style: str) -> dict:
-    rep = representation.strip().lower()
+@st.cache_data(show_spinner=False)
+def calculate_ramachandran_angles(pdb_text: str) -> tuple[list[float], list[float], list[int]]:
+    parser = PDBParser(QUIET=True)
+    structure = parser.get_structure("protein", io.StringIO(pdb_text))
+    phi_angles, psi_angles, residue_numbers = [], [], []
 
-    if color_style == "Uniform":
-        if rep == "stick":
-            return {"stick": {"color": "#57d6ff", "radius": 0.18}}
-        if rep == "sphere":
-            return {"sphere": {"color": "#57d6ff", "scale": 0.34}}
-        if rep == "line":
-            return {"line": {"color": "#57d6ff", "linewidth": 1.5}}
-        if rep == "ribbon":
-            return {
-                "cartoon": {
-                    "color": "#57d6ff",
-                    "ribbon": True,
-                    "thickness": 0.35,
-                }
-            }
-        return {"cartoon": {"color": "#57d6ff"}}
+    def collect(builder) -> None:
+        for model in structure:
+            for chain in model:
+                for poly in builder.build_peptides(chain):
+                    angles = poly.get_phi_psi_list()
+                    residues = list(poly)
+                    for residue, (phi, psi) in zip(residues, angles):
+                        if phi is not None and psi is not None:
+                            phi_angles.append(math.degrees(phi))
+                            psi_angles.append(math.degrees(psi))
+                            residue_numbers.append(residue.id[1])
 
-    scheme = COLOR_SCHEMES.get(color_style, "spectrum")
+    # The strict PPBuilder (uses a tight peptide-bond distance cutoff) can
+    # fail to link consecutive residues in some AlphaFold PDBs and silently
+    # return zero peptides, which left this plot blank. CaPPBuilder uses
+    # CA-CA distance instead and is more tolerant of minor geometry quirks,
+    # so fall back to it if the strict builder finds nothing.
+    collect(PPBuilder())
+    if not phi_angles:
+        from Bio.PDB import CaPPBuilder
+        collect(CaPPBuilder())
 
-    if rep == "stick":
-        return {"stick": {"colorscheme": scheme, "radius": 0.18}}
-    if rep == "sphere":
-        return {"sphere": {"colorscheme": scheme, "scale": 0.34}}
-    if rep == "line":
-        return {"line": {"colorscheme": scheme, "linewidth": 1.5}}
-    if rep == "ribbon":
-        return {
-            "cartoon": {
-                "colorscheme": scheme,
-                "ribbon": True,
-                "thickness": 0.35,
-            }
-        }
-    
-    return {"cartoon": {"colorscheme": scheme}}
+    return phi_angles, psi_angles, residue_numbers
 
 
-def render_structure(
-    pdb_text: str,
-    representation: str = "Stick",
-    color_style: str = "Spectrum",
-    spin: bool = False,
-    highlight_position: Optional[int] = None,
-    highlight_mode: str = "Stick",
-    camera: str = "Default",
-) -> str:
-    if not pdb_text or not pdb_text.strip():
-        return (
-            "<div style='padding:2rem;color:#d7e8ff;font-family:Arial'>"
-            "No PDB structure available.</div>"
-        )
 
-    viewer = py3Dmol.view(width="100%", height=560)
-    viewer.setBackgroundColor("#061126")
-    viewer.addModel(pdb_text, "pdb")
-    selection = {"model": 0}
-
-    # Always clear the model before applying exactly one requested base
-    # representation. This prevents a previous Cartoon/Ribbon style from
-    # leaking into Stick/Sphere when Streamlit reruns the page.
-    viewer.setStyle(selection, {})
-
-    rep = representation.strip().lower()
-    if rep == "surface":
-        # Surface is the only mode that intentionally adds a surface object.
-        viewer.addSurface(
-            py3Dmol.VDW,
-            {
-                "opacity": 0.72,
-                "colorscheme": COLOR_SCHEMES.get(color_style, "spectrum")
-                if color_style != "Uniform"
-                else None,
-                "color": "#57d6ff" if color_style == "Uniform" else None,
-            },
-            selection,
-        )
-    else:
-        viewer.setStyle(selection, _atom_style(representation, color_style))
-
-    if highlight_position is not None:
-        try:
-            residue = int(highlight_position)
-            residue_sel = {"model": 0, "resi": residue}
-            if highlight_mode == "Sphere":
-                viewer.addStyle(
-                    residue_sel,
-                    {"sphere": {"color": "#ffd166", "scale": 0.62}},
-                )
-            else:
-                viewer.addStyle(
-                    residue_sel,
-                    {"stick": {"color": "#ffd166", "radius": 0.32}},
-                )
-        except (TypeError, ValueError):
-            pass
-
-    # Fit before and after orientation. 3Dmol documents zoomTo() as the
-    # method that centers the selected atoms and adjusts the slab.
-    viewer.zoomTo(selection)
-
-    if camera == "Front":
-        viewer.rotate(90, "x")
-    elif camera == "Side":
-        viewer.rotate(90, "y")
-    elif camera == "Top":
-        viewer.rotate(90, "z")
-
-    viewer.zoomTo(selection)
-    viewer.spin("y", 1) if spin else viewer.spin(False)
-    viewer.render()
-
-    return viewer._make_html()
-
-
-def _escape_pdb_for_js(pdb_text: str) -> str:
-    """Make a PDB string safe inside a JS template literal."""
-    return (
-        pdb_text.replace("\\", "\\\\")
-        .replace("`", "\\`")
-        .replace("${", "\\${")
-    )
-
-
-def _ranges_to_resi(ranges) -> list:
-    """Flatten [{'start':a,'end':b}, ...] into a sorted unique residue list."""
-    resi = []
-    for item in ranges or []:
-        try:
-            start, end = int(item["start"]), int(item["end"])
-        except (KeyError, TypeError, ValueError):
-            continue
-        if end < start:
-            start, end = end, start
-        resi.extend(range(start, end + 1))
-    return sorted(set(resi))
-
-
-def render_secondary_structure_3d(
-    pdb_text: str,
-    sec_struct: dict,
-    height: int = 560,
-    spin: bool = False,
-    show_coils: bool = True,
-    background: str = "#061126",
-) -> str:
-    """Cartoon view colour-coded by secondary structure element.
-
-    Alpha helices  -> pink/red ovals
-    Beta strands   -> cyan arrows
-    Turns          -> amber
-    Coils / loops  -> neutral grey trace
-
-    Built with py3Dmol (same rendering path as the main viewer) so the
-    3Dmol library is loaded exactly the way Streamlit's component iframe
-    expects. The previous hand-written <script> version could execute
-    before 3Dmol-min.js finished loading, leaving a blank panel.
+def extract_secondary_structure_ranges(uniprot_data: dict) -> dict:
     """
-    if not pdb_text or not pdb_text.strip():
-        return (
-            "<div style='padding:2rem;color:#d7e8ff;font-family:Arial'>"
-            "No PDB structure available.</div>"
-        )
-
-    sec_struct = sec_struct or {}
-    helix_resi = _ranges_to_resi(sec_struct.get("helices"))
-    sheet_resi = _ranges_to_resi(sec_struct.get("sheets"))
-    turn_resi = _ranges_to_resi(sec_struct.get("turns"))
-    # A residue belongs to one element only; helices/sheets win over turns.
-    claimed = set(helix_resi) | set(sheet_resi)
-    turn_resi = [r for r in turn_resi if r not in claimed]
-
-    viewer = py3Dmol.view(width="100%", height=height)
-    viewer.setBackgroundColor(background)
-    viewer.addModel(pdb_text, "pdb")
-    viewer.setStyle({"model": 0}, {})
-
-    # 1. Baseline: thin grey trace for coils / loops.
-    viewer.setStyle(
-        {"model": 0},
-        {
-            "cartoon": {
-                "color": "#8fa3bf",
-                "style": "trace",
-                "thickness": 0.25,
-                "opacity": 0.85 if show_coils else 0.15,
-            }
-        },
+    Extracts residue ranges for Alpha-helices and Beta-strands/sheets from UniProt features.
+    """
+    # normalize_uniprot_record() stores the raw feature list under
+    # "all_features"; raw UniProt JSON uses "features". Accept both.
+    features = (
+        uniprot_data.get("features")
+        or uniprot_data.get("all_features")
+        or []
     )
+    helices = []
+    strands = []
+    turns = []
+    
+    for feat in features:
+        feat_type = feat.get("type", "").lower()
+        location = feat.get("location", {})
+        start = location.get("start", {}).get("value")
+        end = location.get("end", {}).get("value")
+        
+        if start and end:
+            item = {"start": int(start), "end": int(end), "description": feat.get("description", "")}
+            if "helix" in feat_type:
+                helices.append(item)
+            elif "strand" in feat_type or "beta" in feat_type:
+                strands.append(item)
+            elif "turn" in feat_type:
+                turns.append(item)
+                
+    return {
+        "helices": helices,
+        "sheets": strands,
+        "turns": turns
+    }
 
-    # 2. Alpha helices - pink/red oval ribbons.
-    if helix_resi:
-        viewer.setStyle(
-            {"model": 0, "resi": helix_resi},
-            {"cartoon": {"color": "#FF2A6D", "style": "oval",
-                         "thickness": 0.8, "arrows": False}},
-        )
 
-    # 3. Beta strands - cyan arrows.
-    if sheet_resi:
-        viewer.setStyle(
-            {"model": 0, "resi": sheet_resi},
-            {"cartoon": {"color": "#05D9E8", "style": "arrow",
-                         "arrows": True, "thickness": 0.8}},
-        )
+# ------------------------------------------------------------------
+# Geometric secondary-structure fallback
+# ------------------------------------------------------------------
+# UniProt only lists HELIX / STRAND features for proteins with an
+# experimental structure. For AlphaFold-only entries the feature list is
+# empty, which used to make the secondary-structure viewer all grey.
+# This assigns helix / strand from the model's own phi-psi angles.
 
-    # 4. Turns - amber.
-    if turn_resi:
-        viewer.setStyle(
-            {"model": 0, "resi": turn_resi},
-            {"cartoon": {"color": "#FFB703", "style": "oval",
-                         "thickness": 0.5}},
-        )
+@st.cache_data(show_spinner=False)
+def assign_secondary_structure_from_pdb(pdb_text: str) -> dict:
+    phi_angles, psi_angles, residue_numbers = calculate_ramachandran_angles(pdb_text)
 
-    viewer.zoomTo({"model": 0})
-    viewer.spin("y", 1) if spin else viewer.spin(False)
-    viewer.render()
+    labels: list[tuple[int, str]] = []
+    for phi, psi, resi in zip(phi_angles, psi_angles, residue_numbers):
+        if -160.0 <= phi <= -20.0 and -90.0 <= psi <= 10.0:
+            labels.append((resi, "H"))          # right-handed alpha helix
+        elif -180.0 <= phi <= -45.0 and (90.0 <= psi <= 180.0 or -180.0 <= psi <= -170.0):
+            labels.append((resi, "E"))          # extended / beta strand
+        else:
+            labels.append((resi, "C"))
 
-    return viewer._make_html()
+    helices: list[dict] = []
+    sheets: list[dict] = []
+
+    run_label = None
+    run_start = None
+    prev_resi = None
+
+    def close_run() -> None:
+        if run_label is None or run_start is None:
+            return
+        length = prev_resi - run_start + 1
+        item = {"start": run_start, "end": prev_resi, "description": "predicted"}
+        # Minimum lengths keep single noisy residues out of the render.
+        if run_label == "H" and length >= 4:
+            helices.append(item)
+        elif run_label == "E" and length >= 3:
+            sheets.append(item)
+
+    for resi, label in labels:
+        contiguous = prev_resi is not None and resi == prev_resi + 1
+        if label != run_label or not contiguous:
+            close_run()
+            run_label, run_start = label, resi
+        prev_resi = resi
+    close_run()
+
+    return {"helices": helices, "sheets": sheets, "turns": [], "source": "geometry"}
+
+
+def secondary_structure_with_fallback(uniprot_data: dict, pdb_text: str) -> dict:
+    """UniProt annotations when available, otherwise geometric assignment."""
+    annotated = extract_secondary_structure_ranges(uniprot_data)
+    if annotated.get("helices") or annotated.get("sheets"):
+        annotated["source"] = "uniprot"
+        return annotated
+    try:
+        return assign_secondary_structure_from_pdb(pdb_text)
+    except Exception:
+        annotated["source"] = "uniprot"
+        return annotated

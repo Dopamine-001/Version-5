@@ -14,6 +14,8 @@ import streamlit.components.v1 as components
 from core.ncbi import fetch_cds_nucleotide_sequence
 from analysis.structure import secondary_structure_with_fallback
 from viewer.structure_viewer import render_secondary_structure_3d
+from core.blast import run_blast_search
+from core.disprot import get_disprot_regions
 
 from analysis.sequence import hydrophobicity_table, sequence_properties
 from analysis.structure import calculate_ramachandran_angles
@@ -86,6 +88,7 @@ def show_protein(protein_query: str) -> None:
             "Domains & Sites",
             "PTMs",
             "Ramachandran",
+            "BLAST Similarity",
             "Disorder (DisProt)",
             "Comparison",
         ]
@@ -140,9 +143,12 @@ def show_protein(protein_query: str) -> None:
         _render_ramachandran_tab(pdb_text)
 
     with tabs[9]:
-        _render_disorder_tab(protein)
+        _render_blast_tab(protein, sequence)
 
     with tabs[10]:
+        _render_disorder_tab(protein)
+
+    with tabs[11]:
         _render_comparison_tab(
             protein,
             sequence,
@@ -1346,6 +1352,74 @@ def _render_ramachandran_tab(
         st.warning(
             f"Ramachandran analysis could not be calculated: {exc}"
         )
+
+# ============================================================
+
+# BLAST SIMILARITY TAB
+
+# ============================================================
+
+def _render_blast_tab(
+
+    protein: dict,
+
+    sequence: str,
+
+) -> None:
+
+    st.markdown(
+
+        '<div class="section-title">BLAST similarity search</div>',
+
+        unsafe_allow_html=True,
+
+    )
+
+    st.caption(
+
+        "BLAST compares this sequence against millions of others in "
+
+        "NCBI's database to find similar proteins. Unlike the other tabs, "
+
+        "this is a live computation, not an instant lookup — it typically "
+
+        "takes 30-90 seconds."
+
+    )
+
+    run_search = st.button(
+
+        "Run BLAST search",
+
+        key=f"blast_{protein['accession']}",
+
+    )
+
+    if not run_search:
+
+        return
+
+    with st.spinner("Running BLAST — this can take up to a minute..."):
+
+        hits = run_blast_search(sequence)
+
+    if not hits:
+
+        st.warning(
+
+            "No BLAST results were returned, or the search timed out. "
+
+            "NCBI's BLAST servers can be slow or busy — try again in a moment."
+
+        )
+
+        return
+
+    st.success(f"Found {len(hits)} similar sequences.")
+
+    for hit in hits:
+
+        st.write(f"- {hit['title']}")
 
 
 # ============================================================

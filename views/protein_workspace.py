@@ -1337,36 +1337,35 @@ def _render_ramachandran_tab(
                 f"{len(phi)} residues had both φ and ψ angles available."
             )
 
-        else:
-            st.info(
-                "No complete φ/ψ pairs were available."
-            )
-
-    except Exception as exc:
+            except Exception as exc:
         st.warning(
             f"Ramachandran analysis could not be calculated: {exc}"
         )
-        def _render_disorder_tab(
+
+
+def _render_disorder_tab(
     protein: dict,
 ) -> None:
-
     st.markdown(
         '<div class="section-title">Intrinsically disordered regions</div>',
         unsafe_allow_html=True,
     )
-
     st.caption(
         "DisProt is a curated database of protein regions with no fixed "
         "3D shape — these regions are flexible and often play roles in "
         "signaling or regulation. Coverage is limited to well-studied proteins."
     )
-
     regions = get_disprot_regions(protein["accession"])
-
     if not regions:
         st.info(
             "This protein isn't currently annotated in DisProt, or has no "
             "known disordered regions on record."
+        )
+        return
+
+    for r in regions:
+        st.markdown(
+            f"**Residues {r['start']}–{r['end']}:** {r['term']}"
         )
         return
 

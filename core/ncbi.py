@@ -106,11 +106,6 @@ def get_ncbi_gene_info(protein_name):
     ELink
     Additional Entrez searches for related records.
     """
-
-    # =========================================================
-    # 1. ESEARCH
-    # =========================================================
-
     search_url = f"{NCBI_BASE}/esearch.fcgi"
 
     search_params = {
@@ -134,10 +129,6 @@ def get_ncbi_gene_info(protein_name):
             .get("idlist", [])
         )
 
-        # -----------------------------------------------------
-        # Fallback search
-        # -----------------------------------------------------
-
         if not id_list:
             id_list = _search_database(
                 f"{protein_name}[All Fields] AND Homo sapiens[Organism]",
@@ -149,10 +140,6 @@ def get_ncbi_gene_info(protein_name):
             return None
 
         gene_id = str(id_list[0])
-
-        # =========================================================
-        # 2. ESUMMARY
-        # =========================================================
 
         summary_url = f"{NCBI_BASE}/esummary.fcgi"
 
@@ -175,10 +162,6 @@ def get_ncbi_gene_info(protein_name):
             .get(gene_id, {})
         )
 
-        # =========================================================
-        # 3. EFETCH
-        # =========================================================
-
         fetch_url = f"{NCBI_BASE}/efetch.fcgi"
 
         fetch_params = {
@@ -193,10 +176,6 @@ def get_ncbi_gene_info(protein_name):
         )
 
         xml_root = ET.fromstring(fetch_response.text)
-
-        # =========================================================
-        # 4. BASIC GENE IDENTITY
-        # =========================================================
 
         gene_symbol = (
             result.get("name")
@@ -216,10 +195,6 @@ def get_ncbi_gene_info(protein_name):
             or "Not available"
         )
 
-        # =========================================================
-        # 5. ORGANISM
-        # =========================================================
-
         organism = result.get("organism", {})
 
         if isinstance(organism, dict):
@@ -231,10 +206,6 @@ def get_ncbi_gene_info(protein_name):
             organism_name = str(
                 organism or "Homo sapiens"
             )
-
-        # =========================================================
-        # 6. ALIASES
-        # =========================================================
 
         aliases = []
 
@@ -264,10 +235,6 @@ def get_ncbi_gene_info(protein_name):
 
         aliases = list(dict.fromkeys(aliases))
 
-        # =========================================================
-        # 7. CHROMOSOME
-        # =========================================================
-
         chromosome = (
             result.get("chromosome")
             or _text(
@@ -277,54 +244,30 @@ def get_ncbi_gene_info(protein_name):
             or "Unknown"
         )
 
-        # =========================================================
-        # 8. MAP LOCATION
-        # =========================================================
-
         map_location = (
             result.get("maplocation")
             or "Unknown"
         )
-
-        # =========================================================
-        # 9. GENE TYPE
-        # =========================================================
 
         gene_type = (
             result.get("genetype")
             or "Not available"
         )
 
-        # =========================================================
-        # 10. STATUS
-        # =========================================================
-
         status = (
             result.get("status")
             or "Not available"
         )
-
-        # =========================================================
-        # 11. SUMMARY
-        # =========================================================
 
         summary = (
             result.get("summary")
             or "No summary available."
         )
 
-        # =========================================================
-        # 12. OTHER DESIGNATIONS
-        # =========================================================
-
         designations = _collect_texts(
             xml_root,
             ".//Gene-ref_syn/Gene-ref_syn_Other",
         )
-
-        # =========================================================
-        # 13. NOMENCLATURE
-        # =========================================================
 
         nomenclature_symbol = (
             result.get("nomenclaturesymbol")
@@ -336,14 +279,9 @@ def get_ncbi_gene_info(protein_name):
             or gene_name
         )
 
-        # =========================================================
-        # 14. CROSS REFERENCES
-        # =========================================================
-
         db_references = []
 
         for dbtag in xml_root.findall(".//Dbtag"):
-
             db = _text(
                 dbtag,
                 "Dbtag_db",
@@ -359,17 +297,12 @@ def get_ncbi_gene_info(protein_name):
                 )
 
             if db and tag is not None and tag.text:
-
                 db_references.append(
                     {
                         "database": db,
                         "identifier": tag.text.strip(),
                     }
                 )
-
-        # =========================================================
-        # 15. RELATED RECORDS USING ELINK
-        # =========================================================
 
         related_databases = {
             "pubmed": "pubmed",
@@ -383,15 +316,10 @@ def get_ncbi_gene_info(protein_name):
         related_records = {}
 
         for label, database in related_databases.items():
-
             related_records[label] = _get_related_ids(
                 gene_id,
                 database,
             )
-
-        # =========================================================
-        # 16. DIRECT DATABASE SEARCHES
-        # =========================================================
 
         pubmed_ids = _search_database(
             f"{gene_symbol}[Title/Abstract]",
@@ -419,60 +347,34 @@ def get_ncbi_gene_info(protein_name):
             [],
         )
 
-        # =========================================================
-        # 17. RETURN COMPLETE DATASET
-        # =========================================================
-
         return {
-
-            # Identity
             "gene_id": gene_id,
             "gene_symbol": gene_symbol,
             "gene_name": gene_name,
             "description": gene_name,
             "organism": organism_name,
-
-            # Location
             "chromosome": chromosome,
             "map_location": map_location,
             "genomic_location": map_location,
-
-            # Classification
             "gene_type": gene_type,
             "status": status,
-
-            # Names
             "aliases": aliases,
             "other_designations": designations,
-
-            # Function
             "summary": summary,
-
-            # Nomenclature
             "nomenclature_symbol": nomenclature_symbol,
             "nomenclature_full_name": nomenclature_full_name,
-
-            # Cross references
             "cross_references": db_references,
-
-            # Related databases
             "related_records": related_records,
-
-            # Individual record collections
             "pubmed_ids": pubmed_ids,
             "protein_ids": protein_ids,
             "nucleotide_ids": nucleotide_ids,
             "snp_ids": snp_ids,
             "clinvar_ids": clinvar_ids,
-
-            # Useful counts
             "pubmed_count": len(pubmed_ids),
             "protein_count": len(protein_ids),
             "nucleotide_count": len(nucleotide_ids),
             "snp_count": len(snp_ids),
             "clinvar_count": len(clinvar_ids),
-
-            # NCBI URL
             "ncbi_gene_url": (
                 "https://www.ncbi.nlm.nih.gov/"
                 f"gene/{gene_id}"
@@ -480,9 +382,6 @@ def get_ncbi_gene_info(protein_name):
         }
 
     except Exception as exc:
-
-        # Return a controlled error instead of crashing
-        # the entire Streamlit application.
         return {
             "error": str(exc),
             "gene_id": None,
@@ -508,7 +407,6 @@ def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
     Uses UniProt cross-references to identify an EMBL/RefSeq nucleotide
     accession and retrieves the corresponding sequence from NCBI.
     """
-
     result = {
         "accession": None,
         "sequence": "",
@@ -521,9 +419,6 @@ def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
 
     nucleotide_id = None
 
-    # ---------------------------------------------------------
-    # Find a suitable EMBL / RefSeq nucleotide accession
-    # ---------------------------------------------------------
     for ref in cross_refs:
         database = ref.get("database", "")
         ref_id = ref.get("id", "")
@@ -543,7 +438,6 @@ def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
                 break
 
         elif database == "EMBL":
-            # Prefer nucleotide accession rather than ProteinId
             nucleotide_id = (
                 properties.get("NucleotideSequenceID")
                 or properties.get("Nucleotide sequence ID")
@@ -556,9 +450,6 @@ def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
     if not nucleotide_id:
         return result
 
-    # ---------------------------------------------------------
-    # Query NCBI
-    # ---------------------------------------------------------
     url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
 
     params = {
@@ -582,11 +473,7 @@ def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
         if not fasta.startswith(">"):
             return result
 
-        # -----------------------------------------------------
-        # Parse FASTA
-        # -----------------------------------------------------
         lines = fasta.splitlines()
-
         description = lines[0][1:].strip()
 
         sequence = "".join(
@@ -595,7 +482,6 @@ def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
             if line.strip()
         ).upper()
 
-        # Keep only valid DNA characters
         sequence = "".join(
             base for base in sequence
             if base in "ACGTN"
@@ -604,9 +490,6 @@ def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
         if not sequence:
             return result
 
-        # -----------------------------------------------------
-        # Calculate GC content
-        # -----------------------------------------------------
         gc_count = sequence.count("G") + sequence.count("C")
         gc_content = round(
             (gc_count / len(sequence)) * 100,
@@ -626,8 +509,3 @@ def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
 
     except Exception:
         return result
-            }
-    except Exception:
-        pass
-
-    return results

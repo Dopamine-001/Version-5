@@ -404,8 +404,8 @@ def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
     """
     Fetch the nucleotide CDS sequence associated with a UniProt protein.
 
-    Uses UniProt cross-references to identify an EMBL/RefSeq nucleotide
-    accession and retrieves the corresponding sequence from NCBI.
+    Uses UniProt cross-references to identify a nucleotide accession and
+    retrieves the corresponding sequence from NCBI.
     """
     result = {
         "accession": None,
@@ -416,7 +416,6 @@ def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
     }
 
     cross_refs = uniprot_data.get("uniProtKBCrossReferences", [])
-
     nucleotide_id = None
 
     for ref in cross_refs:
@@ -425,24 +424,30 @@ def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
         properties = {
             item.get("key"): item.get("value")
             for item in ref.get("properties", [])
+            if isinstance(item, dict)
         }
 
-        if database == "RefSeq":
-            nucleotide_id = (
-                properties.get("nucleotide sequence ID")
-                or properties.get("NucleotideSequenceID")
-                or ref_id
-            )
+        if database in {"RefSeq", "EMBL", "GenBank", "DDBJ"}:
+            candidate_keys = [
+                "NucleotideSequenceID",
+                "nucleotide sequence ID",
+                "Nucleotide sequence ID",
+                "Accession",
+                "accession",
+                "nucleotide accession",
+                "nucleotide accession number",
+                "protein sequence ID",
+                "ProteinSequenceID",
+            ]
 
-            if nucleotide_id:
-                break
+            for key in candidate_keys:
+                value = properties.get(key)
+                if value:
+                    nucleotide_id = value.strip()
+                    break
 
-        elif database == "EMBL":
-            nucleotide_id = (
-                properties.get("NucleotideSequenceID")
-                or properties.get("Nucleotide sequence ID")
-                or ref_id
-            )
+            if not nucleotide_id and ref_id:
+                nucleotide_id = ref_id.strip()
 
             if nucleotide_id:
                 break
@@ -460,17 +465,13 @@ def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
     }
 
     try:
-        response = requests.get(
-            url,
-            params=params,
-            timeout=15
-        )
-
+        response = requests.get(url, params=params, timeout=15)
         response.raise_for_status()
 
         fasta = response.text.strip()
 
         if not fasta.startswith(">"):
+            result["accession"] = nucleotide_id
             return result
 
         lines = fasta.splitlines()
@@ -482,19 +483,15 @@ def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
             if line.strip()
         ).upper()
 
-        sequence = "".join(
-            base for base in sequence
-            if base in "ACGTN"
-        )
+        sequence = "".join(base for base in sequence if base in "ACGTN")
 
         if not sequence:
+            result["accession"] = nucleotide_id
+            result["description"] = description
             return result
 
         gc_count = sequence.count("G") + sequence.count("C")
-        gc_content = round(
-            (gc_count / len(sequence)) * 100,
-            2
-        )
+        gc_content = round((gc_count / len(sequence)) * 100, 2)
 
         return {
             "accession": nucleotide_id,
@@ -505,7 +502,9 @@ def fetch_cds_nucleotide_sequence(uniprot_data: dict) -> dict:
         }
 
     except requests.RequestException:
+        result["accession"] = nucleotide_id
         return result
 
     except Exception:
+        result["accession"] = nucleotide_id
         return result

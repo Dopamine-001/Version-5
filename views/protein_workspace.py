@@ -33,6 +33,7 @@ from core.alphafold import (
 )
 from core.helpers import esc
 from core.ncbi import get_ncbi_gene_info
+from core.disprot import get_disprot_regions
 from core.uniprot import normalize_uniprot_record, search_uniprot
 from viewer.structure_viewer import render_structure
 from views.comparison_workspace import render_comparison

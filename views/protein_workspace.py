@@ -1,6 +1,6 @@
 """
 The main single-protein workspace: fetches UniProt + AlphaFold data for one
-query and renders the header metrics plus all ten analysis tabs. Each tab's
+query and renders the header metrics plus all analysis tabs. Each tab's
 content is delegated to the relevant analysis/charts/viewer module — this
 file is mostly Streamlit layout glue.
 """
@@ -72,7 +72,7 @@ def show_protein(protein_query: str) -> None:
     _render_header(protein, properties, plddt)
 
     # ========================================================
-    # TEN ANALYSIS TABS
+    # ANALYSIS TABS
     # ========================================================
 
     tabs = st.tabs(
@@ -86,6 +86,7 @@ def show_protein(protein_query: str) -> None:
             "Domains & Sites",
             "PTMs",
             "Ramachandran",
+            "Disorder (DisProt)",
             "Comparison",
         ]
     )
@@ -148,7 +149,6 @@ def show_protein(protein_query: str) -> None:
             properties,
             pdb_text,
             plddt,
-            disorders,
         )
 
 
@@ -1337,11 +1337,20 @@ def _render_ramachandran_tab(
                 f"{len(phi)} residues had both φ and ψ angles available."
             )
 
-            except Exception as exc:
+        else:
+            st.info(
+                "No complete φ/ψ pairs were available."
+            )
+
+    except Exception as exc:
         st.warning(
             f"Ramachandran analysis could not be calculated: {exc}"
         )
 
+
+# ============================================================
+# DISORDER (DISPROT) TAB
+# ============================================================
 
 def _render_disorder_tab(
     protein: dict,
@@ -1360,12 +1369,6 @@ def _render_disorder_tab(
         st.info(
             "This protein isn't currently annotated in DisProt, or has no "
             "known disordered regions on record."
-        )
-        return
-
-    for r in regions:
-        st.markdown(
-            f"**Residues {r['start']}–{r['end']}:** {r['term']}"
         )
         return
 

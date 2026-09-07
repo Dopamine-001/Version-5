@@ -908,12 +908,25 @@ def _render_blast_tab(protein: dict, sequence: str) -> None:
 
 def _render_disorder_tab(protein: dict) -> None:
     st.markdown(
-        '<div class="section-title">Intrinsically disordered regions</div>',
+        '<div class="section-title">Intrinsically disordered regions (DisProt)</div>',
         unsafe_allow_html=True,
     )
-    regions = get_disprot_regions(protein["accession"])
+    
+    uniprot_id = protein.get("accession", protein.get("uniprot", "P04637"))
+    
+    with st.spinner("Fetching disorder annotations..."):
+        regions = get_disprot_regions(uniprot_id)
+        
+    if not regions:
+        st.info("No DisProt disorder regions found for this entry.")
+        return
+        
+    st.success("Successfully loaded structural disorder profiles.")
     for r in regions:
-        st.markdown(f"**Residues {r['start']}–{r['end']}:** {r['term']}")
+        start = r.get("Start", r.get("start", "?"))
+        end = r.get("End", r.get("end", "?"))
+        state = r.get("State", r.get("term", r.get("name", "Disordered region")))
+        st.markdown(f"**Residues {start}–{end}**: {state}")
 
 
 # ============================================================

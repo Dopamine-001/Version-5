@@ -12,7 +12,7 @@ def render_structure(
     highlight_mode: str = "Stick",
     camera: str = "Default",
 ) -> str:
-    """Generates a safe 3Dmol.js viewer HTML string for primary structures."""
+    """Generates an interactive 3Dmol.js viewer HTML string for primary structures."""
     pdb_json = json.dumps(pdb_text)
     
     rep_map = {
@@ -25,44 +25,33 @@ def render_structure(
     }
     rep = rep_map.get(representation, "cartoon")
 
+    color_prop = "spectrum"
     if color_style == "Chain":
-        color_code = "chain"
+        color_prop = "chain"
     elif color_style == "Uniform":
-        color_code = "#05D9E8"
-    else:
-        color_code = "spectrum"
+        color_prop = "#05D9E8"
 
-    if representation == "Surface":
-        setup_js = f"""
-            viewer.setStyle({{}}, {{cartoon: {{color: '{color_code}'}}}});
-            viewer.addSurface($3Dmol.SurfaceType.VDW, {{opacity: 0.85, color: '{color_code}'}});
-        """
-    elif color_style == "Secondary structure":
-        setup_js = f"""
-            viewer.setStyle({{ss: 'h'}}, {{{rep}: {{color: '#FF2A6D'}}}});
-            viewer.setStyle({{ss: 's'}}, {{{rep}: {{color: '#05D9E8'}}}});
-            viewer.setStyle({{ss: 'c'}}, {{{rep}: {{color: '#8FA3BF'}}}});
-        """
+    if color_style == "Secondary structure":
+        color_js = f"viewer.setStyle({{ss: 'h'}}, {{{rep}: {{color: '#FF2A6D'}}}});\n"
+        color_js += f"viewer.setStyle({{ss: 's'}}, {{{rep}: {{color: '#05D9E8'}}}});\n"
+        color_js += f"viewer.setStyle({{ss: 'c'}}, {{{rep}: {{color: '#8FA3BF'}}}});"
     else:
-        setup_js = f"""
-            viewer.setStyle({{}}, {{{rep}: {{color: '{color_code}'}}}});
-        """
+        color_js = f"viewer.setStyle({{}}, {{{rep}: {{color: '{color_prop}'}}}});"
+
+    surface_js = ""
+    if representation == "Surface":
+        surface_js = f"viewer.addSurface($3Dmol.SurfaceType.VDW, {{opacity: 0.85, color: '{color_prop}'}});"
 
     highlight_js = ""
     if highlight_position is not None:
         hm = "stick" if highlight_mode == "Stick" else "sphere"
-        highlight_js = f"""
-            viewer.addStyle({{resi: {highlight_position}}}, {{{hm}: {{color: 'yellow', radius: 0.4}}}});
-        """
+        highlight_js = f"viewer.addStyle({{resi: {highlight_position}}}, {{{hm}: {{color: 'yellow', radius: 0.4}}}});"
 
-    if camera == "Front":
-        camera_js = "viewer.zoomTo();"
-    elif camera == "Side":
+    camera_js = "viewer.zoomTo();"
+    if camera == "Side":
         camera_js = "viewer.zoomTo(); viewer.rotate(90, {x: 0, y: 1, z: 0});"
     elif camera == "Top":
         camera_js = "viewer.zoomTo(); viewer.rotate(90, {x: 1, y: 0, z: 0});"
-    else:
-        camera_js = "viewer.zoomTo();"
 
     spin_code = "viewer.spin(true);" if spin else "viewer.spin(false);"
 
@@ -78,21 +67,18 @@ def render_structure(
     <body>
         <div id="container"></div>
         <script>
-            try {{
-                let pdbData = {pdb_json};
-                let element = document.getElementById("container");
-                let config = {{ backgroundColor: "#0b0f19" }};
-                let viewer = $3Dmol.createViewer(element, config);
-                
-                viewer.addModel(pdbData, "pdb");
-                {setup_js}
-                {highlight_js}
-                {camera_js}
-                {spin_code}
-                viewer.render();
-            } catch (err) {{
-                console.error("3Dmol rendering error:", err);
-            }}
+            let pdbData = {pdb_json};
+            let element = document.getElementById("container");
+            let config = {{ backgroundColor: "#0b0f19" }};
+            let viewer = $3Dmol.createViewer(element, config);
+            
+            viewer.addModel(pdbData, "pdb");
+            {color_js}
+            {surface_js}
+            {highlight_js}
+            {camera_js}
+            {spin_code}
+            viewer.render();
         </script>
     </body>
     </html>
@@ -110,7 +96,7 @@ def render_secondary_structure_3d(
     camera: str = "Default",
     highlight_position: int | None = None,
 ) -> str:
-    """Generates a safe 3Dmol.js secondary structure viewer supporting all representations."""
+    """Generates a 3Dmol.js secondary structure viewer supporting all representation styles."""
     pdb_json = json.dumps(pdb_text)
     
     rep_map = {
@@ -133,13 +119,13 @@ def render_secondary_structure_3d(
     coil_selector = ", ".join(coil_res) if coil_res else "-1"
 
     if representation == "Surface":
-        setup_js = """
-            viewer.setStyle({}, {cartoon: {color: '#8FA3BF'}});
-            viewer.addSurface($3Dmol.SurfaceType.VDW, {opacity: 0.85, color: '#8FA3BF'});
+        style_js = f"""
+            viewer.setStyle({{}}, {{cartoon: {{color: '#8FA3BF'}}}});
+            viewer.addSurface($3Dmol.SurfaceType.VDW, {{opacity: 0.85, color: '#8FA3BF'}});
         """
     else:
         coil_action = f"viewer.setStyle({{resi: [{coil_selector}]}}, {{{rep}: {{color: '#8FA3BF'}}}});" if show_coils else f"viewer.setStyle({{resi: [{coil_selector}]}}, {{hidden: true}});"
-        setup_js = f"""
+        style_js = f"""
             viewer.setStyle({{}}, {{{rep}: {{color: '#8FA3BF'}}}});
             viewer.setStyle({{resi: [{helix_selector}]}}, {{{rep}: {{color: '#FF2A6D'}}}});
             viewer.setStyle({{resi: [{sheet_selector}]}}, {{{rep}: {{color: '#05D9E8'}}}});
@@ -150,14 +136,11 @@ def render_secondary_structure_3d(
     if highlight_position is not None:
         highlight_js = f"viewer.addStyle({{resi: {highlight_position}}}, {{stick: {{color: 'yellow', radius: 0.4}}}});"
 
-    if camera == "Front":
-        camera_js = "viewer.zoomTo();"
-    elif camera == "Side":
+    camera_js = "viewer.zoomTo();"
+    if camera == "Side":
         camera_js = "viewer.zoomTo(); viewer.rotate(90, {x: 0, y: 1, z: 0});"
     elif camera == "Top":
         camera_js = "viewer.zoomTo(); viewer.rotate(90, {x: 1, y: 0, z: 0});"
-    else:
-        camera_js = "viewer.zoomTo();"
 
     spin_code = "viewer.spin(true);" if spin else "viewer.spin(false);"
 
@@ -173,27 +156,21 @@ def render_secondary_structure_3d(
     <body>
         <div id="container"></div>
         <script>
-            try {{
-                let pdbData = {pdb_json};
-                let element = document.getElementById("container");
-                let config = {{ backgroundColor: "#0b0f19" }};
-                let viewer = $3Dmol.createViewer(element, config);
-                
-                viewer.addModel(pdbData, "pdb");
-                {setup_js}
-                {highlight_js}
-                {camera_js}
-                {spin_code}
-                viewer.render();
-            }} catch (err) {{
-                console.error("3Dmol secondary structure rendering error:", err);
-            }}
+            let pdbData = {pdb_json};
+            let element = document.getElementById("container");
+            let config = {{ backgroundColor: "#0b0f19" }};
+            let viewer = $3Dmol.createViewer(element, config);
+            
+            viewer.addModel(pdbData, "pdb");
+            {style_js}
+            {highlight_js}
+            {camera_js}
+            {spin_code}
+            viewer.render();
         </script>
     </body>
     </html>
     """
     return html
 
-
-# Alias to satisfy any import lookup looking for render_secondary_structure
 render_secondary_structure = render_secondary_structure_3d

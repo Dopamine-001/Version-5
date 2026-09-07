@@ -25,22 +25,11 @@ def render_structure(
     }
     rep = rep_map.get(representation, "cartoon")
 
-    # Color configuration
     color_prop = "spectrum"
     if color_style == "Chain":
         color_prop = "chain"
     elif color_style == "Uniform":
         color_prop = "#05D9E8"
-
-    style_block = f"{{{rep}: {{color: '{color_prop}'}}}}"
-    if color_style == "Secondary structure":
-        style_block = f"""
-            {{
-                ss: 'h'}}, {{{rep}: {{color: '#FF2A6D'}}}},
-                {{ss: 's'}}, {{{rep}: {{color: '#05D9E8'}}}},
-                {{ss: 'c'}}, {{{rep}: {{color: '#8FA3BF'}}}}
-            
-        """
 
     surface_js = ""
     if representation == "Surface":
@@ -98,7 +87,7 @@ def render_structure(
                 {spin_code}
                 
                 viewer.render();
-            } catch (err) {{
+            }} catch (err) {{
                 console.error(err);
             }}
         </script>
@@ -180,10 +169,8 @@ def render_secondary_structure_3d(
                 
                 viewer.addModel(pdbData, "pdb");
 
-                // Base style
                 viewer.setStyle({{}}, {{{rep}: {{color: '#8FA3BF'}}}});
 
-                // Secondary structure assignments
                 viewer.setStyle({{resi: [{helix_selector}]}}, {{{rep}: {{color: '#FF2A6D'}}}});
                 viewer.setStyle({{resi: [{sheet_selector}]}}, {{{rep}: {{color: '#05D9E8'}}}});
                 {coil_action}
@@ -194,7 +181,7 @@ def render_secondary_structure_3d(
                 {spin_code}
                 
                 viewer.render();
-            } catch (err) {{
+            }} catch (err) {{
                 console.error(err);
             }}
         </script>

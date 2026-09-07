@@ -11,7 +11,7 @@ from core.uniprot import normalize_uniprot_record, search_uniprot
 from viewer.structure_viewer import render_structure
 
 
-def show_comparison(
+def render_comparison(
     p1: dict,
     sequence1: str,
     properties1: dict,
@@ -47,7 +47,6 @@ def show_comparison(
         unsafe_allow_html=True,
     )
 
-    # Side-by-side metrics table
     col1, col2 = st.columns(2)
 
     with col1:

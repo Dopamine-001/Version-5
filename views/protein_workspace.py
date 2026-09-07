@@ -943,20 +943,23 @@ def _render_hpa_tab(protein: dict) -> None:
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("### Tissue Expression Profile")
-        tissues = hpa_info.get("Tissues", "Summary unavailable.")
-        if isinstance(tissues, (dict, list)):
-            st.json(tissues)
+        tissues = hpa_info.get("Tissues", {})
+        if isinstance(tissues, dict):
+            st.info(tissues.get("Details", "Data unavailable"))
+            link = tissues.get("External Link", "#")
+            st.markdown(f"🔗 **[View Full Tissue Atlas Entry]({link})**")
         else:
             st.write(tissues)
 
     with c2:
         st.markdown("### Pathology & Disease Associations")
-        pathology = hpa_info.get("Pathology", "Pathology data unavailable.")
-        if isinstance(pathology, (dict, list)):
-            st.json(pathology)
+        pathology = hpa_info.get("Pathology", {})
+        if isinstance(pathology, dict):
+            st.warning(pathology.get("Details", "Data unavailable"))
+            link = pathology.get("External Link", "#")
+            st.markdown(f"🔗 **[View Pathology Atlas Entry]({link})**")
         else:
             st.write(pathology)
-
 
 # ============================================================
 # COMPARISON TAB

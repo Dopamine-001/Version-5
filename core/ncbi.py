@@ -1,376 +1,56 @@
 from __future__ import annotations
 
+import urllib.request
+import urllib.parse
 import xml.etree.ElementTree as ET
 
-import requests
-
-from core.helpers import safe_get
-from core.ensembl import lookup_ensembl_id, fetch_ensembl_sequence
-
-NCBI_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 
 
-def _text(element, path, default=""):
-    node = element.find(path)
-    if node is not None and node.text:
-        return node.text.strip()
-    return default
-
-
-def _collect_texts(element, path):
-    values = []
-    for node in element.findall(path):
-        if node.text and node.text.strip():
-            values.append(node.text.strip())
-    return values
-
-
-def _safe_json(response):
+def search_ncbi_gene(query: str, db: str = "gene", retmax: int = 5) -> list[dict]:
+    """Searches NCBI databases (e.g., gene, nuccore, protein) and returns matching records."""
+    search_url = f"{BASE_URL}esearch.fcgi?db={db}&term={urllib.parse.quote(query)}&retmax={retmax}&sort=relevant&format=json"
+    
     try:
-        return response.json()
-    except Exception:
-        return {}
-
-
-def _get_related_ids(gene_id, database):
-    url = f"{NCBI_BASE}/elink.fcgi"
-    params = {
-        "dbfrom": "gene",
-        "db": database,
-        "id": gene_id,
-        "retmode": "json",
-    }
-
-    try:
-        response = safe_get(url, params=params)
-        data = _safe_json(response)
-        ids = []
-        for linkset in data.get("linksets", []):
-            for linksetdb in linkset.get("linksetdbs", []):
-                ids.extend(linksetdb.get("links", []))
-        return list(dict.fromkeys(str(x) for x in ids))
-    except Exception:
+        req = urllib.request.Request(search_url, headers={"User-Agent": "ProteinExplorer/1.0"})
+        with urllib.request.urlopen(req) as response:
+            import json
+            data = json.loads(response.read().decode())
+            id_list = data.get("esearchresult", {}).get("idlist", [])
+            
+            if not id_list:
+                return []
+                
+            return fetch_ncbi_summaries(db, id_list)
+    except Exception as e:
+        print(f"NCBI Search Error: {e}")
         return []
 
 
-def _search_database(term, database, retmax=20):
-    url = f"{NCBI_BASE}/esearch.fcgi"
-    params = {
-        "db": database,
-        "term": term,
-        "retmode": "json",
-        "retmax": retmax,
-    }
-
+def fetch_ncbi_summaries(db: str, id_list: list[str]) -> list[dict]:
+    """Fetches summary details for a list of NCBI UIDs."""
+    ids_str = ",".join(id_list)
+    summary_url = f"{BASE_URL}esummary.fcgi?db={db}&id={ids_str}&format=json"
+    
     try:
-        response = safe_get(url, params=params)
-        data = _safe_json(response)
-        return data.get("esearchresult", {}).get("idlist", [])
-    except Exception:
+        req = urllib.request.Request(summary_url, headers={"User-Agent": "ProteinExplorer/1.0"})
+        with urllib.request.urlopen(req) as response:
+            import json
+            data = json.loads(response.read().decode())
+            result = data.get("result", {})
+            
+            summaries = []
+            for uid in id_list:
+                if uid in result:
+                    item = result[uid]
+                    summaries.append({
+                        "uid": uid,
+                        "name": item.get("name", item.get("title", "Unknown")),
+                        "description": item.get("description", item.get("caption", "")),
+                        "organism": item.get("organism", {}).get("scientificname", "Unknown"),
+                        "chromosome": item.get("chromosome", ""),
+                    })
+            return summaries
+    except Exception as e:
+        print(f"NCBI Summary Error: {e}")
         return []
-
-
-def get_ncbi_gene_info(protein_name):
-    search_url = f"{NCBI_BASE}/esearch.fcgi"
-    search_params = {
-        "db": "gene",
-        "term": f"{protein_name}[Gene Name] AND Homo sapiens[Organism]",
-        "retmode": "json",
-        "retmax": 1,
-    }
-
-    try:
-        search_response = safe_get(search_url, params=search_params)
-        search_data = _safe_json(search_response)
-
-        id_list = search_data.get("esearchresult", {}).get("idlist", [])
-        if not id_list:
-            id_list = _search_database(
-                f"{protein_name}[All Fields] AND Homo sapiens[Organism]",
-                "gene",
-                retmax=1,
-            )
-
-        if not id_list:
-            return None
-
-        gene_id = str(id_list[0])
-
-        summary_url = f"{NCBI_BASE}/esummary.fcgi"
-        summary_params = {
-            "db": "gene",
-            "id": gene_id,
-            "retmode": "json",
-        }
-
-        summary_response = safe_get(summary_url, params=summary_params)
-        summary_data = _safe_json(summary_response)
-
-        result = summary_data.get("result", {}).get(gene_id, {})
-
-        fetch_url = f"{NCBI_BASE}/efetch.fcgi"
-        fetch_params = {
-            "db": "gene",
-            "id": gene_id,
-            "retmode": "xml",
-        }
-
-        fetch_response = safe_get(fetch_url, params=fetch_params)
-        xml_root = ET.fromstring(fetch_response.text)
-
-        gene_symbol = (
-            result.get("name")
-            or _text(xml_root, ".//Gene-ref/Gene-ref_locus")
-            or protein_name
-        )
-
-        gene_name = (
-            result.get("description")
-            or _text(xml_root, ".//Gene-ref/Gene-ref_desc")
-            or "Not available"
-        )
-
-        organism = result.get("organism", {})
-        if isinstance(organism, dict):
-            organism_name = organism.get("scientificname", "Homo sapiens")
-        else:
-            organism_name = str(organism or "Homo sapiens")
-
-        aliases = []
-        aliases.extend(_collect_texts(xml_root, ".//Gene-ref_syn/Gene-ref_syn_E"))
-        aliases.extend(_collect_texts(xml_root, ".//Gene-ref_syn/Gene-ref_syn_N"))
-
-        if not aliases:
-            other_aliases = result.get("otheraliases")
-            if other_aliases:
-                aliases = [
-                    x.strip()
-                    for x in str(other_aliases).split(",")
-                    if x.strip()
-                ]
-
-        aliases = list(dict.fromkeys(aliases))
-
-        chromosome = (
-            result.get("chromosome")
-            or _text(xml_root, ".//Gene-commentary_chromosome")
-            or "Unknown"
-        )
-
-        map_location = result.get("maplocation") or "Unknown"
-        gene_type = result.get("genetype") or "Not available"
-        status = result.get("status") or "Not available"
-        summary = result.get("summary") or "No summary available."
-
-        designations = _collect_texts(
-            xml_root,
-            ".//Gene-ref_syn/Gene-ref_syn_Other",
-        )
-
-        nomenclature_symbol = result.get("nomenclaturesymbol") or gene_symbol
-        nomenclature_full_name = result.get("nomenclaturefullname") or gene_name
-
-        db_references = []
-        for dbtag in xml_root.findall(".//Dbtag"):
-            db = _text(dbtag, "Dbtag_db")
-            tag = dbtag.find("Dbtag_tag/Object-id/Object-id_str")
-            if tag is None:
-                tag = dbtag.find("Dbtag_tag/Object-id/Object-id_id")
-            if db and tag is not None and tag.text:
-                db_references.append(
-                    {
-                        "database": db,
-                        "identifier": tag.text.strip(),
-                    }
-                )
-
-        related_databases = {
-            "pubmed": "pubmed",
-            "protein": "protein",
-            "nucleotide": "nuccore",
-            "snp": "snp",
-            "clinvar": "clinvar",
-            "omim": "omim",
-        }
-
-        related_records = {}
-        for label, database in related_databases.items():
-            related_records[label] = _get_related_ids(gene_id, database)
-
-        pubmed_ids = _search_database(
-            f"{gene_symbol}[Title/Abstract]",
-            "pubmed",
-            retmax=20,
-        )
-
-        protein_ids = related_records.get("protein", [])
-        nucleotide_ids = related_records.get("nucleotide", [])
-        snp_ids = related_records.get("snp", [])
-        clinvar_ids = related_records.get("clinvar", [])
-
-        return {
-            "gene_id": gene_id,
-            "gene_symbol": gene_symbol,
-            "gene_name": gene_name,
-            "description": gene_name,
-            "organism": organism_name,
-            "chromosome": chromosome,
-            "map_location": map_location,
-            "genomic_location": map_location,
-            "gene_type": gene_type,
-            "status": status,
-            "aliases": aliases,
-            "other_designations": designations,
-            "summary": summary,
-            "nomenclature_symbol": nomenclature_symbol,
-            "nomenclature_full_name": nomenclature_full_name,
-            "cross_references": db_references,
-            "related_records": related_records,
-            "pubmed_ids": pubmed_ids,
-            "protein_ids": protein_ids,
-            "nucleotide_ids": nucleotide_ids,
-            "snp_ids": snp_ids,
-            "clinvar_ids": clinvar_ids,
-            "pubmed_count": len(pubmed_ids),
-            "protein_count": len(protein_ids),
-            "nucleotide_count": len(nucleotide_ids),
-            "snp_count": len(snp_ids),
-            "clinvar_count": len(clinvar_ids),
-            "ncbi_gene_url": f"https://www.ncbi.nlm.nih.gov/gene/{gene_id}",
-        }
-
-    except Exception as exc:
-        return {
-            "error": str(exc),
-            "gene_id": None,
-            "gene_symbol": protein_name,
-            "gene_name": "NCBI retrieval failed",
-            "organism": "Homo sapiens",
-            "aliases": [],
-            "other_designations": [],
-            "cross_references": [],
-            "related_records": {},
-            "pubmed_ids": [],
-            "protein_ids": [],
-            "nucleotide_ids": [],
-            "snp_ids": [],
-            "clinvar_ids": [],
-        }
-
-
-def fetch_cds_nucleotide_sequence(uniprot_data: dict, gene_symbol: str | None = None) -> dict:
-    result = {
-        "source": None,
-        "accession": None,
-        "sequence": "",
-        "length": 0,
-        "gc_content": 0.0,
-        "description": "",
-        "error": "",
-    }
-
-    cross_refs = uniprot_data.get("uniProtKBCrossReferences", [])
-    ensembl_transcript_id = None
-    nucleotide_id = None
-
-    for ref in cross_refs:
-        database = ref.get("database", "")
-        ref_id = ref.get("id", "")
-        properties = {
-            item.get("key"): item.get("value")
-            for item in ref.get("properties", [])
-            if isinstance(item, dict)
-        }
-
-        if database == "Ensembl":
-            if ref_id.startswith("ENST"):
-                ensembl_transcript_id = ref_id
-                break
-            if ref_id.startswith("ENSG"):
-                try:
-                    lookup = lookup_ensembl_id(ref_id, expand=True)
-                    for tr in lookup.get("Transcript", []) or []:
-                        tid = tr.get("id", "")
-                        if tid.startswith("ENST"):
-                            ensembl_transcript_id = tid
-                            break
-                except Exception:
-                    pass
-
-        if database in {"RefSeq", "EMBL", "GenBank", "DDBJ"}:
-            for key in [
-                "NucleotideSequenceID",
-                "nucleotide sequence ID",
-                "Nucleotide sequence ID",
-                "Accession",
-                "accession",
-                "nucleotide accession",
-                "nucleotide accession number",
-            ]:
-                val = properties.get(key)
-                if val:
-                    nucleotide_id = val.strip()
-                    break
-
-            if not nucleotide_id and ref_id:
-                nucleotide_id = ref_id.strip()
-
-    if ensembl_transcript_id:
-        seq = fetch_ensembl_sequence(ensembl_transcript_id, seq_type="cds")
-        if seq.get("sequence"):
-            sequence = seq["sequence"].upper()
-            gc = round(
-                ((sequence.count("G") + sequence.count("C")) / len(sequence)) * 100,
-                2
-            )
-            return {
-                "source": "ensembl",
-                "accession": ensembl_transcript_id,
-                "sequence": sequence,
-                "length": len(sequence),
-                "gc_content": gc,
-                "description": "Ensembl CDS sequence",
-                "error": "",
-            }
-
-    if nucleotide_id:
-        url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
-        params = {
-            "db": "nuccore",
-            "id": nucleotide_id,
-            "rettype": "fasta",
-            "retmode": "text",
-        }
-
-        try:
-            response = requests.get(url, params=params, timeout=15)
-            response.raise_for_status()
-
-            fasta = response.text.strip()
-            if fasta.startswith(">"):
-                lines = fasta.splitlines()
-                description = lines[0][1:].strip()
-                sequence = "".join(line.strip() for line in lines[1:] if line.strip()).upper()
-                sequence = "".join(base for base in sequence if base in "ACGTN")
-
-                if sequence:
-                    gc = round(
-                        ((sequence.count("G") + sequence.count("C")) / len(sequence)) * 100,
-                        2
-                    )
-                    return {
-                        "source": "ncbi",
-                        "accession": nucleotide_id,
-                        "sequence": sequence,
-                        "length": len(sequence),
-                        "gc_content": gc,
-                        "description": description,
-                        "error": "",
-                    }
-        except Exception as exc:
-            result["error"] = str(exc)
-
-    if gene_symbol:
-        result["error"] = "No linked CDS/nucleotide accession found for this record."
-
-    return result

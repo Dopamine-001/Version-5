@@ -12,7 +12,7 @@ def render_structure(
     highlight_mode: str = "Stick",
     camera: str = "Default",
 ) -> str:
-    """Generates an interactive, dynamically re-rendered 3Dmol.js viewer HTML string."""
+    """Generates an interactive, robust 3Dmol.js viewer HTML string for primary structures."""
     pdb_json = json.dumps(pdb_text)
     
     rep_map = {
@@ -25,26 +25,23 @@ def render_structure(
     }
     rep = rep_map.get(representation, "cartoon")
 
-    # Base color configuration
-    color_prop = "spectrum"
+    # Configure color logic
+    color_js = "viewer.setStyle({}, {" + rep + ": {color: 'spectrum'}});"
     if color_style == "Chain":
-        color_prop = "chain"
+        color_js = "viewer.setStyle({}, {" + rep + ": {color: 'chain'}});"
     elif color_style == "Uniform":
-        color_prop = "#05D9E8"
-    
-    style_json = json.dumps({rep: {"color": color_prop}})
-
-    # Secondary structure custom coloring override
-    secondary_color_js = ""
-    if color_style == "Secondary structure":
-        secondary_color_js = f"""
-            viewer.setStyle({{}}, {{hidden: true}});
+        color_js = "viewer.setStyle({}, {" + rep + ": {color: '#05D9E8'}});"
+    elif color_style == "Secondary structure":
+        color_js = f"""
             viewer.setStyle({{ss: 'h'}}, {{{rep}: {{color: '#FF2A6D'}}}});
             viewer.setStyle({{ss: 's'}}, {{{rep}: {{color: '#05D9E8'}}}});
             viewer.setStyle({{ss: 'c'}}, {{{rep}: {{color: '#8FA3BF'}}}});
         """
-    else:
-        secondary_color_js = f"viewer.setStyle({{}}, {style_json});"
+
+    # Surface representation needs special handling in 3Dmol.js
+    extra_rep_js = ""
+    if representation == "Surface":
+        extra_rep_js = "viewer.addSurface($3Dmol.SurfaceType.VDW, {opacity: 0.85, color: 'spectrum'});"
 
     highlight_js = ""
     if highlight_position is not None:
@@ -82,8 +79,9 @@ def render_structure(
             
             viewer.addModel(pdbData, "pdb");
             
-            // Apply styles
-            {secondary_color_js}
+            viewer.setStyle({{}}, {{{rep}: {{color: 'spectrum'}}}});
+            {color_js}
+            {extra_rep_js}
             {highlight_js}
             
             {camera_js}
@@ -107,7 +105,7 @@ def render_secondary_structure_3d(
     camera: str = "Default",
     highlight_position: int | None = None,
 ) -> str:
-    """Generates a 3Dmol.js viewer explicitly colored by computed secondary structure with full representation options."""
+    """Generates a 3Dmol.js secondary structure viewer supporting all representations."""
     pdb_json = json.dumps(pdb_text)
     
     rep_map = {
@@ -116,7 +114,8 @@ def render_secondary_structure_3d(
         "Trace": "trace",
         "Tube": "tube",
         "Stick": "stick",
-        "Sphere": "sphere"
+        "Sphere": "sphere",
+        "Surface": "surface"
     }
     rep = rep_map.get(representation, "cartoon")
 
@@ -144,6 +143,10 @@ def render_secondary_structure_3d(
 
     coil_action = f"viewer.setStyle({{resi: [{coil_selector}]}}, {{{rep}: {{color: '#8FA3BF'}}}});" if show_coils else f"viewer.setStyle({{resi: [{coil_selector}]}}, {{hidden: true}});"
 
+    extra_surface_js = ""
+    if representation == "Surface":
+        extra_surface_js = "viewer.addSurface($3Dmol.SurfaceType.VDW, {opacity: 0.85, color: '#8FA3BF'});"
+
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -163,13 +166,14 @@ def render_secondary_structure_3d(
             
             viewer.addModel(pdbData, "pdb");
 
-            // Base style
+            // Base fallback style
             viewer.setStyle({{}}, {{{rep}: {{color: '#8FA3BF'}}}});
 
-            // Color assignments
+            // Colored assignments by secondary structure
             viewer.setStyle({{resi: [{helix_selector}]}}, {{{rep}: {{color: '#FF2A6D'}}}});
             viewer.setStyle({{resi: [{sheet_selector}]}}, {{{rep}: {{color: '#05D9E8'}}}});
             {coil_action}
+            {extra_surface_js}
 
             {highlight_js}
             {camera_js}

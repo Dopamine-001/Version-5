@@ -22,6 +22,8 @@ def render_structure(
         "Ribbon": "ribbon",
         "Line": "line",
         "Surface": "surface",
+        "Trace": "trace",
+        "Tube": "tube",
     }
     rep = rep_map.get(representation, "cartoon")
 
@@ -98,9 +100,20 @@ def render_secondary_structure_3d(
     camera: str = "Default",
     highlight_position: int | None = None,
 ) -> str:
-    """Generates a 3Dmol.js secondary structure viewer with proper atom selectors for Trace and Tube."""
+    """Generates a 3Dmol.js secondary structure viewer supporting all representations robustly."""
     pdb_json = json.dumps(pdb_text)
     
+    rep_map = {
+        "Cartoon": "cartoon",
+        "Ribbon": "ribbon",
+        "Trace": "trace",
+        "Tube": "tube",
+        "Stick": "stick",
+        "Sphere": "sphere",
+        "Surface": "surface",
+    }
+    rep = rep_map.get(representation, "cartoon")
+
     helix_res = [str(k) for k, v in sec_struct.items() if v == "H"]
     sheet_res = [str(k) for k, v in sec_struct.items() if v == "E"]
     coil_res = [str(k) for k, v in sec_struct.items() if v == "C"]
@@ -109,34 +122,17 @@ def render_secondary_structure_3d(
     sheet_selector = ", ".join(sheet_res) if sheet_res else "-1"
     coil_selector = ", ".join(coil_res) if coil_res else "-1"
 
-    # Map representations to 3Dmol.js style keys and atom selectors
-    if representation == "Trace":
-        rep_key = "trace"
-        selector_modifier = "atom: 'CA', "
-    elif representation == "Tube":
-        rep_key = "tube"
-        selector_modifier = "atom: 'CA', "
-    elif representation == "Ribbon":
-        rep_key = "ribbon"
-        selector_modifier = ""
-    elif representation == "Surface":
-        rep_key = "cartoon"
-        selector_modifier = ""
-    else:  # Cartoon
-        rep_key = "cartoon"
-        selector_modifier = ""
-
     if representation == "Surface":
         style_js = """
             viewer.setStyle({}, {cartoon: {color: '#8FA3BF'}});
             viewer.addSurface($3Dmol.SurfaceType.VDW, {opacity: 0.85, color: '#8FA3BF'});
         """
     else:
-        coil_action = f"viewer.setStyle({{{selector_modifier}resi: [{coil_selector}]}}, {{{rep_key}: {{color: '#8FA3BF'}}}});" if show_coils else f"viewer.setStyle({{{selector_modifier}resi: [{coil_selector}]}}, {{hidden: true}});"
+        coil_action = f"viewer.setStyle({{resi: [{coil_selector}]}}, {{{rep}: {{color: '#8FA3BF'}}}});" if show_coils else f"viewer.setStyle({{resi: [{coil_selector}]}}, {{hidden: true}});"
         style_js = f"""
-            viewer.setStyle({{}}, {{{rep_key}: {{color: '#8FA3BF'}}}});
-            viewer.setStyle({{{selector_modifier}resi: [{helix_selector}]}}, {{{rep_key}: {{color: '#FF2A6D'}}}});
-            viewer.setStyle({{{selector_modifier}resi: [{sheet_selector}]}}, {{{rep_key}: {{color: '#05D9E8'}}}});
+            viewer.setStyle({{}}, {{{rep}: {{color: '#8FA3BF'}}}});
+            viewer.setStyle({{resi: [{helix_selector}]}}, {{{rep}: {{color: '#FF2A6D'}}}});
+            viewer.setStyle({{resi: [{sheet_selector}]}}, {{{rep}: {{color: '#05D9E8'}}}});
             {coil_action}
         """
 
@@ -180,5 +176,6 @@ def render_secondary_structure_3d(
     </html>
     """
     return html
+
 
 render_secondary_structure = render_secondary_structure_3d

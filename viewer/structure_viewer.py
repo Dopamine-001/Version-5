@@ -25,23 +25,26 @@ def render_structure(
     }
     rep = rep_map.get(representation, "cartoon")
 
-    # Configure color logic
-    color_js = "viewer.setStyle({}, {" + rep + ": {color: 'spectrum'}});"
+    # Color configuration
+    color_prop = "spectrum"
     if color_style == "Chain":
-        color_js = "viewer.setStyle({}, {" + rep + ": {color: 'chain'}});"
+        color_prop = "chain"
     elif color_style == "Uniform":
-        color_js = "viewer.setStyle({}, {" + rep + ": {color: '#05D9E8'}});"
-    elif color_style == "Secondary structure":
-        color_js = f"""
-            viewer.setStyle({{ss: 'h'}}, {{{rep}: {{color: '#FF2A6D'}}}});
-            viewer.setStyle({{ss: 's'}}, {{{rep}: {{color: '#05D9E8'}}}});
-            viewer.setStyle({{ss: 'c'}}, {{{rep}: {{color: '#8FA3BF'}}}});
+        color_prop = "#05D9E8"
+
+    style_block = f"{{{rep}: {{color: '{color_prop}'}}}}"
+    if color_style == "Secondary structure":
+        style_block = f"""
+            {{
+                ss: 'h'}}, {{{rep}: {{color: '#FF2A6D'}}}},
+                {{ss: 's'}}, {{{rep}: {{color: '#05D9E8'}}}},
+                {{ss: 'c'}}, {{{rep}: {{color: '#8FA3BF'}}}}
+            
         """
 
-    # Surface representation needs special handling in 3Dmol.js
-    extra_rep_js = ""
+    surface_js = ""
     if representation == "Surface":
-        extra_rep_js = "viewer.addSurface($3Dmol.SurfaceType.VDW, {opacity: 0.85, color: 'spectrum'});"
+        surface_js = "viewer.addSurface($3Dmol.SurfaceType.VDW, {opacity: 0.85, color: 'spectrum'});"
 
     highlight_js = ""
     if highlight_position is not None:
@@ -72,22 +75,32 @@ def render_structure(
     <body>
         <div id="container"></div>
         <script>
-            let pdbData = {pdb_json};
-            let element = document.getElementById("container");
-            let config = {{ backgroundColor: "#0b0f19" }};
-            let viewer = $3Dmol.createViewer(element, config);
-            
-            viewer.addModel(pdbData, "pdb");
-            
-            viewer.setStyle({{}}, {{{rep}: {{color: 'spectrum'}}}});
-            {color_js}
-            {extra_rep_js}
-            {highlight_js}
-            
-            {camera_js}
-            {spin_code}
-            
-            viewer.render();
+            try {{
+                let pdbData = {pdb_json};
+                let element = document.getElementById("container");
+                let config = {{ backgroundColor: "#0b0f19" }};
+                let viewer = $3Dmol.createViewer(element, config);
+                
+                viewer.addModel(pdbData, "pdb");
+                
+                if ("{color_style}" === "Secondary structure") {{
+                    viewer.setStyle({{ss: 'h'}}, {{{rep}: {{color: '#FF2A6D'}}}});
+                    viewer.setStyle({{ss: 's'}}, {{{rep}: {{color: '#05D9E8'}}}});
+                    viewer.setStyle({{ss: 'c'}}, {{{rep}: {{color: '#8FA3BF'}}}});
+                }} else {{
+                    viewer.setStyle({{}}, {{{rep}: {{color: '{color_prop}'}}}});
+                }}
+
+                {surface_js}
+                {highlight_js}
+                
+                {camera_js}
+                {spin_code}
+                
+                viewer.render();
+            } catch (err) {{
+                console.error(err);
+            }}
         </script>
     </body>
     </html>
@@ -105,7 +118,7 @@ def render_secondary_structure_3d(
     camera: str = "Default",
     highlight_position: int | None = None,
 ) -> str:
-    """Generates a 3Dmol.js secondary structure viewer supporting all representations."""
+    """Generates a 3Dmol.js secondary structure viewer supporting all representations safely."""
     pdb_json = json.dumps(pdb_text)
     
     rep_map = {
@@ -143,9 +156,9 @@ def render_secondary_structure_3d(
 
     coil_action = f"viewer.setStyle({{resi: [{coil_selector}]}}, {{{rep}: {{color: '#8FA3BF'}}}});" if show_coils else f"viewer.setStyle({{resi: [{coil_selector}]}}, {{hidden: true}});"
 
-    extra_surface_js = ""
+    surface_js = ""
     if representation == "Surface":
-        extra_surface_js = "viewer.addSurface($3Dmol.SurfaceType.VDW, {opacity: 0.85, color: '#8FA3BF'});"
+        surface_js = "viewer.addSurface($3Dmol.SurfaceType.VDW, {opacity: 0.85, color: '#8FA3BF'});"
 
     html = f"""
     <!DOCTYPE html>
@@ -159,27 +172,31 @@ def render_secondary_structure_3d(
     <body>
         <div id="container"></div>
         <script>
-            let pdbData = {pdb_json};
-            let element = document.getElementById("container");
-            let config = {{ backgroundColor: "#0b0f19" }};
-            let viewer = $3Dmol.createViewer(element, config);
-            
-            viewer.addModel(pdbData, "pdb");
+            try {{
+                let pdbData = {pdb_json};
+                let element = document.getElementById("container");
+                let config = {{ backgroundColor: "#0b0f19" }};
+                let viewer = $3Dmol.createViewer(element, config);
+                
+                viewer.addModel(pdbData, "pdb");
 
-            // Base fallback style
-            viewer.setStyle({{}}, {{{rep}: {{color: '#8FA3BF'}}}});
+                // Base style
+                viewer.setStyle({{}}, {{{rep}: {{color: '#8FA3BF'}}}});
 
-            // Colored assignments by secondary structure
-            viewer.setStyle({{resi: [{helix_selector}]}}, {{{rep}: {{color: '#FF2A6D'}}}});
-            viewer.setStyle({{resi: [{sheet_selector}]}}, {{{rep}: {{color: '#05D9E8'}}}});
-            {coil_action}
-            {extra_surface_js}
+                // Secondary structure assignments
+                viewer.setStyle({{resi: [{helix_selector}]}}, {{{rep}: {{color: '#FF2A6D'}}}});
+                viewer.setStyle({{resi: [{sheet_selector}]}}, {{{rep}: {{color: '#05D9E8'}}}});
+                {coil_action}
+                {surface_js}
 
-            {highlight_js}
-            {camera_js}
-            {spin_code}
-            
-            viewer.render();
+                {highlight_js}
+                {camera_js}
+                {spin_code}
+                
+                viewer.render();
+            } catch (err) {{
+                console.error(err);
+            }}
         </script>
     </body>
     </html>

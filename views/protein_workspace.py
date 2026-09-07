@@ -109,7 +109,7 @@ def show_protein(protein_query: str) -> None:
         )
 
     with tabs[1]:
-        _render_ncbi_tab(ncbi_info)
+        _render_ncbi_tab(ncbi_info, protein)
 
     with tabs[2]:
         _render_primary_structure_tab(
@@ -425,7 +425,7 @@ def _render_overview_tab(
 # NCBI GENE TAB
 # ============================================================
 
-def _render_ncbi_tab(ncbi_info) -> None:
+def _render_ncbi_tab(ncbi_info, protein: dict) -> None:
     st.markdown(
         '<div class="section-title">NCBI Gene information</div>',
         unsafe_allow_html=True,
@@ -536,6 +536,10 @@ def _render_ncbi_tab(ncbi_info) -> None:
                 f"**Description**  \n{description}"
             )
 
+    if gene_id and gene_id != "N/A":
+        ncbi_url = f"https://www.ncbi.nlm.nih.gov/gene/{gene_id}"
+        st.markdown(f"🔗 **External Link:** [View Gene {gene_id} on NCBI Database]({ncbi_url})", unsafe_allow_html=True)
+
     if aliases:
         st.markdown(
             '<div class="section-title">Gene aliases / synonyms</div>',
@@ -547,7 +551,7 @@ def _render_ncbi_tab(ncbi_info) -> None:
         else:
             st.write(str(aliases))
 
-    if summary and summary != description:
+    if summary:
         st.markdown(
             '<div class="section-title">NCBI summary</div>',
             unsafe_allow_html=True,
@@ -555,6 +559,24 @@ def _render_ncbi_tab(ncbi_info) -> None:
 
         with st.container(border=True):
             st.write(summary)
+
+    st.markdown('<div class="section-title">Transcript & CDS Data</div>', unsafe_allow_html=True)
+    
+    with st.spinner("Fetching linked mRNA / CDS nucleotide sequence from NCBI..."):
+        cds_data = fetch_cds_nucleotide_sequence(protein)
+
+    if cds_data and cds_data.get("sequence"):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric("mRNA Length", f"{cds_data.get('length', 0):,} bp")
+        with c2:
+            st.metric("GC Content", f"{cds_data.get('gc_content', 0.0)}%")
+        with c3:
+            st.metric("Accession", cds_data.get("accession", "N/A"))
+
+        st.text_area("Coding Sequence (CDS) FASTA Preview", cds_data.get("sequence", "")[:1000] + "...", height=150)
+    else:
+        st.info("No direct mRNA transcript sequence could be automatically linked for this gene symbol.")
 
 
 # ============================================================
@@ -982,7 +1004,7 @@ def _render_hpa_tab(protein: dict) -> None:
         
     with st.spinner(f"Fetching expression and pathology profiles for {gene_symbol}..."):
         hpa_info = get_hpa_data(gene_symbol)
-        
+    
     if not hpa_info:
         st.warning(f"No records found for '{gene_symbol}'.")
         return
@@ -1023,10 +1045,10 @@ def _render_comparison_tab(
 
     if st.button("Compare", type="primary", key=f"compare_btn_{protein['accession']}") and compare_query.strip():
         render_comparison(
-            p1=protein,
-            sequence1=sequence,
-            properties1=properties,
-            pdb1=pdb_text,
-            plddt1=plddt,
-            query2=compare_query.strip(),
+            protein,
+            sequence,
+            properties,
+            pdb_text,
+            plddt,
+            compare_query.strip(),
         )

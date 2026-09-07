@@ -49,8 +49,28 @@ def _feature_type(feature: dict) -> str:
     return re.sub(r"[^A-Z0-9]+", "_", str(feature.get("type", "")).upper()).strip("_")
 
 
+def _flatten_feature(f: dict) -> dict:
+    """Safely flatten a raw UniProt feature into a clean dictionary for tables."""
+    loc = f.get("location", {})
+    start = "N/A"
+    end = "N/A"
+    
+    if isinstance(loc, dict):
+        s_obj = loc.get("start", {})
+        e_obj = loc.get("end", {})
+        start = str(s_obj.get("value", s_obj.get("position", "N/A"))) if isinstance(s_obj, dict) else str(s_obj)
+        end = str(e_obj.get("value", e_obj.get("position", "N/A"))) if isinstance(e_obj, dict) else str(e_obj)
+
+    return {
+        "Type": str(f.get("type", "Feature")),
+        "Start": start,
+        "End": end,
+        "Description": str(f.get("description", f.get("featureId", "No description available"))),
+    }
+
+
 def normalize_uniprot_record(record: dict) -> dict:
-    """Extract identity, sequence and all relevant feature annotations."""
+    """Extract identity, sequence and fully flattened feature annotations."""
     protein_desc = record.get("proteinDescription", {}) or {}
     recommended = protein_desc.get("recommendedName", {}) or {}
     full_name = recommended.get("fullName", {}).get("value", "Unknown protein")
@@ -76,8 +96,6 @@ def normalize_uniprot_record(record: dict) -> dict:
     keywords = [x.get("name") for x in record.get("keywords", []) if x.get("name")]
     features = record.get("features", []) or []
 
-    # UniProt feature names are intentionally grouped broadly. This is more
-    # robust than assuming every protein contains the same small set of types.
     variant_types = {"VARIANT", "MUTAGEN"}
     domain_types = {
         "DOMAIN", "REGION", "MOTIF", "COILED_COIL", "COMPBIAS", "REPEAT",
@@ -94,14 +112,11 @@ def normalize_uniprot_record(record: dict) -> dict:
         "PROPEP", "SIGNAL", "TRANSIT", "CHAIN", "PEPTIDE",
     }
 
-    variants = [f for f in features if _feature_type(f) in variant_types]
-    domains = [f for f in features if _feature_type(f) in domain_types]
-    sites = [f for f in features if _feature_type(f) in site_types]
-    ptms = [f for f in features if _feature_type(f) in ptm_types]
-
-    # Keep every feature available so the UI can fall back gracefully when a
-    # particular UniProt entry has unusual annotation types.
-    all_features = features
+    variants = [_flatten_feature(f) for f in features if _feature_type(f) in variant_types]
+    domains = [_flatten_feature(f) for f in features if _feature_type(f) in domain_types]
+    sites = [_flatten_feature(f) for f in features if _feature_type(f) in site_types]
+    ptms = [_flatten_feature(f) for f in features if _feature_type(f) in ptm_types]
+    all_features = [_flatten_feature(f) for f in features]
 
     interactions = []
     for comment in record.get("comments", []) or []:

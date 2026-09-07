@@ -34,7 +34,7 @@ from core.blast import run_blast_search
 from core.disprot import get_disprot_regions
 from core.helpers import esc
 from core.hpa import get_hpa_data
-from core.ncbi import fetch_cds_nucleotide_sequence, get_ncbi_gene_info
+from core.ncbi import fetch_cds_nucleotide_sequence, search_ncbi_gene
 from core.uniprot import normalize_uniprot_record, search_uniprot
 from viewer.structure_viewer import (
     render_secondary_structure_3d,
@@ -60,7 +60,9 @@ def show_protein(protein_query: str) -> None:
     protein = normalize_uniprot_record(record)
     sequence = protein["sequence"]
 
-    ncbi_info = get_ncbi_gene_info(protein["gene"])
+    gene_sym = protein.get("gene", "").split(",")[0].strip()
+    ncbi_results = search_ncbi_gene(gene_sym, db="gene", retmax=1) if gene_sym else []
+    ncbi_info = ncbi_results[0] if ncbi_results else {}
 
     if not sequence:
         st.error("UniProt returned the entry, but no sequence was available.")
@@ -458,6 +460,7 @@ def _render_ncbi_tab(ncbi_info) -> None:
         or ncbi_info.get("symbol")
         or ncbi_info.get("gene_symbol")
         or ncbi_info.get("geneSymbol")
+        or ncbi_info.get("name")
     )
 
     description = (

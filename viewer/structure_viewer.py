@@ -19,13 +19,17 @@ def render_structure(
         "Stick": "stick",
         "Sphere": "sphere",
         "Cartoon": "cartoon",
-        "Ribbon": "ribbon",
+        "Ribbon": "cartoon",
         "Line": "line",
         "Surface": "surface",
         "Trace": "trace",
         "Tube": "tube",
     }
     rep = rep_map.get(representation, "cartoon")
+
+    atom_selector = ""
+    if representation in ["Trace", "Tube"]:
+        atom_selector = "atom: 'CA', "
 
     color_prop = "spectrum"
     if color_style == "Chain":
@@ -35,12 +39,12 @@ def render_structure(
 
     if color_style == "Secondary structure":
         color_js = f"""
-            viewer.setStyle({{ss: 'h'}}, {{{rep}: {{color: '#FF2A6D'}}}});
-            viewer.setStyle({{ss: 's'}}, {{{rep}: {{color: '#05D9E8'}}}});
-            viewer.setStyle({{ss: 'c'}}, {{{rep}: {{color: '#8FA3BF'}}}});
+            viewer.setStyle({{{atom_selector}ss: 'h'}}, {{{rep}: {{color: '#FF2A6D'}}}});
+            viewer.setStyle({{{atom_selector}ss: 's'}}, {{{rep}: {{color: '#05D9E8'}}}});
+            viewer.setStyle({{{atom_selector}ss: 'c'}}, {{{rep}: {{color: '#8FA3BF'}}}});
         """
     else:
-        color_js = f"viewer.setStyle({{}}, {{{rep}: {{color: '{color_prop}'}}}});"
+        color_js = f"viewer.setStyle({{{atom_selector}}}, {{{rep}: {{color: '{color_prop}'}}}});"
 
     surface_js = ""
     if representation == "Surface":
@@ -53,9 +57,9 @@ def render_structure(
 
     camera_js = "viewer.zoomTo();"
     if camera == "Side":
-        camera_js = "viewer.zoomTo(); viewer.rotate(90, {x: 0, y: 1, z: 0});"
+        camera_js = "viewer.zoomTo(); viewer.rotate(90, {{x: 0, y: 1, z: 0}});"
     elif camera == "Top":
-        camera_js = "viewer.zoomTo(); viewer.rotate(90, {x: 1, y: 0, z: 0});"
+        camera_js = "viewer.zoomTo(); viewer.rotate(90, {{x: 1, y: 0, z: 0}});"
 
     spin_code = "viewer.spin(true);" if spin else "viewer.spin(false);"
 
@@ -100,12 +104,12 @@ def render_secondary_structure_3d(
     camera: str = "Default",
     highlight_position: int | None = None,
 ) -> str:
-    """Generates a 3Dmol.js secondary structure viewer supporting all representations robustly."""
+    """Generates a 3Dmol.js secondary structure viewer supporting all representations reliably."""
     pdb_json = json.dumps(pdb_text)
     
     rep_map = {
         "Cartoon": "cartoon",
-        "Ribbon": "ribbon",
+        "Ribbon": "cartoon",
         "Trace": "trace",
         "Tube": "tube",
         "Stick": "stick",
@@ -113,6 +117,10 @@ def render_secondary_structure_3d(
         "Surface": "surface",
     }
     rep = rep_map.get(representation, "cartoon")
+
+    atom_selector = ""
+    if representation in ["Trace", "Tube"]:
+        atom_selector = "atom: 'CA', "
 
     helix_res = [str(k) for k, v in sec_struct.items() if v == "H"]
     sheet_res = [str(k) for k, v in sec_struct.items() if v == "E"]
@@ -128,11 +136,11 @@ def render_secondary_structure_3d(
             viewer.addSurface($3Dmol.SurfaceType.VDW, {opacity: 0.85, color: '#8FA3BF'});
         """
     else:
-        coil_action = f"viewer.setStyle({{resi: [{coil_selector}]}}, {{{rep}: {{color: '#8FA3BF'}}}});" if show_coils else f"viewer.setStyle({{resi: [{coil_selector}]}}, {{hidden: true}});"
+        coil_action = f"viewer.setStyle({{{atom_selector}resi: [{coil_selector}]}}, {{{rep}: {{color: '#8FA3BF'}}}});" if show_coils else f"viewer.setStyle({{{atom_selector}resi: [{coil_selector}]}}, {{hidden: true}});"
         style_js = f"""
-            viewer.setStyle({{}}, {{{rep}: {{color: '#8FA3BF'}}}});
-            viewer.setStyle({{resi: [{helix_selector}]}}, {{{rep}: {{color: '#FF2A6D'}}}});
-            viewer.setStyle({{resi: [{sheet_selector}]}}, {{{rep}: {{color: '#05D9E8'}}}});
+            viewer.setStyle({{{atom_selector}}}, {{{rep}: {{color: '#8FA3BF'}}}});
+            viewer.setStyle({{{atom_selector}resi: [{helix_selector}]}}, {{{rep}: {{color: '#FF2A6D'}}}});
+            viewer.setStyle({{{atom_selector}resi: [{sheet_selector}]}}, {{{rep}: {{color: '#05D9E8'}}}});
             {coil_action}
         """
 
@@ -142,9 +150,9 @@ def render_secondary_structure_3d(
 
     camera_js = "viewer.zoomTo();"
     if camera == "Side":
-        camera_js = "viewer.zoomTo(); viewer.rotate(90, {x: 0, y: 1, z: 0});"
+        camera_js = "viewer.zoomTo(); viewer.rotate(90, {{x: 0, y: 1, z: 0}});"
     elif camera == "Top":
-        camera_js = "viewer.zoomTo(); viewer.rotate(90, {x: 1, y: 0, z: 0});"
+        camera_js = "viewer.zoomTo(); viewer.rotate(90, {{x: 1, y: 0, z: 0}});"
 
     spin_code = "viewer.spin(true);" if spin else "viewer.spin(false);"
 

@@ -147,16 +147,14 @@ def show_comparison(*args, **kwargs) -> None:
     with view_col1:
         st.subheader(f"3D Structure: {p1['accession']}")
         if pdb1:
-            html1 = render_structure(pdb1, representation="Cartoon", color_style="Spectrum")
-            components.html(html1, height=450, scrolling=False)
+            render_structure(pdb1, representation="Cartoon", color_style="Spectrum", width=450, height=450)
         else:
             st.info("No structure available for Protein 1.")
 
     with view_col2:
         st.subheader(f"3D Structure: {p2['accession']}")
         if pdb2:
-            html2 = render_structure(pdb2, representation="Cartoon", color_style="Spectrum")
-            components.html(html2, height=450, scrolling=False)
+            render_structure(pdb2, representation="Cartoon", color_style="Spectrum", width=450, height=450)
         else:
             st.info("No structure available for Protein 2.")
 

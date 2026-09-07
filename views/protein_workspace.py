@@ -174,28 +174,32 @@ def show_protein(protein_query: str) -> None:
         )
 
 
+import textwrap
+
 # ============================================================
 # HEADER
 # ============================================================
 
 def _render_header(protein: dict, properties: dict, plddt) -> None:
     st.markdown(
-        f"""
-        <div class="hero">
-            <div class="kicker">
-                Protein workspace · {esc(protein['accession'])}
-            </div>
+        textwrap.dedent(
+            f"""
+            <div class="hero">
+                <div class="kicker">
+                    Protein workspace · {esc(protein['accession'])}
+                </div>
 
-            <div class="hero-title">
-                {esc(protein['name'])}
-            </div>
+                <div class="hero-title">
+                    {esc(protein['name'])}
+                </div>
 
-            <div class="hero-copy">
-                {esc(protein['organism'])} · Gene: {esc(protein['gene'])}
-                · UniProt: {esc(protein['accession'])}
+                <div class="hero-copy">
+                    {esc(protein['organism'])} · Gene: {esc(protein['gene'])}
+                    · UniProt: {esc(protein['accession'])}
+                </div>
             </div>
-        </div>
-        """,
+            """
+        ),
         unsafe_allow_html=True,
     )
 
@@ -237,13 +241,15 @@ def _render_header(protein: dict, properties: dict, plddt) -> None:
     for col, (label, value, sub) in zip(cols, metrics):
         with col:
             st.markdown(
-                f"""
-                <div class="metric-card">
-                    <div class="metric-label">{esc(label)}</div>
-                    <div class="metric-value">{esc(value)}</div>
-                    <div class="metric-sub">{esc(sub)}</div>
-                </div>
-                """,
+                textwrap.dedent(
+                    f"""
+                    <div class="metric-card">
+                        <div class="metric-label">{esc(label)}</div>
+                        <div class="metric-value">{esc(value)}</div>
+                        <div class="metric-sub">{esc(sub)}</div>
+                    </div>
+                    """
+                ),
                 unsafe_allow_html=True,
             )
 
@@ -257,7 +263,6 @@ def _render_header(protein: dict, properties: dict, plddt) -> None:
         '</div>',
         unsafe_allow_html=True,
     )
-
 
 # ============================================================
 # OVERVIEW TAB

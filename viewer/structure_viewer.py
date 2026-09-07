@@ -12,7 +12,7 @@ def render_structure(
     highlight_mode: str = "Stick",
     camera: str = "Default",
 ) -> str:
-    """Generates an interactive 3Dmol.js viewer HTML string for primary structures."""
+    """Generates an interactive, dynamically re-rendered 3Dmol.js viewer HTML string."""
     pdb_json = json.dumps(pdb_text)
     
     rep_map = {
@@ -25,17 +25,26 @@ def render_structure(
     }
     rep = rep_map.get(representation, "cartoon")
 
-    color_js = "viewer.setStyle({}, {cartoon: {color: 'spectrum'}});"
+    # Base color configuration
+    color_prop = "spectrum"
     if color_style == "Chain":
-        color_js = "viewer.setStyle({}, {cartoon: {color: 'chain'}});"
+        color_prop = "chain"
     elif color_style == "Uniform":
-        color_js = "viewer.setStyle({}, {cartoon: {color: '#05D9E8'}});"
-    elif color_style == "Secondary structure":
-        color_js = """
-            viewer.setStyle({ss: 'h'}, {cartoon: {color: '#FF2A6D'}});
-            viewer.setStyle({ss: 's'}, {cartoon: {color: '#05D9E8'}});
-            viewer.setStyle({ss: 'c'}, {cartoon: {color: '#8FA3BF'}});
+        color_prop = "#05D9E8"
+    
+    style_json = json.dumps({rep: {"color": color_prop}})
+
+    # Secondary structure custom coloring override
+    secondary_color_js = ""
+    if color_style == "Secondary structure":
+        secondary_color_js = f"""
+            viewer.setStyle({{}}, {{hidden: true}});
+            viewer.setStyle({{ss: 'h'}}, {{{rep}: {{color: '#FF2A6D'}}}});
+            viewer.setStyle({{ss: 's'}}, {{{rep}: {{color: '#05D9E8'}}}});
+            viewer.setStyle({{ss: 'c'}}, {{{rep}: {{color: '#8FA3BF'}}}});
         """
+    else:
+        secondary_color_js = f"viewer.setStyle({{}}, {style_json});"
 
     highlight_js = ""
     if highlight_position is not None:
@@ -44,13 +53,13 @@ def render_structure(
             viewer.addStyle({{resi: {highlight_position}}}, {{{hm}: {{color: 'yellow', radius: 0.4}}}});
         """
 
-    camera_js = ""
+    camera_js = "viewer.zoomTo();"
     if camera == "Front":
         camera_js = "viewer.zoomTo();"
     elif camera == "Side":
-        camera_js = "viewer.rotate(90, {x: 0, y: 1, z: 0});"
+        camera_js = "viewer.zoomTo(); viewer.rotate(90, {{x: 0, y: 1, z: 0}});"
     elif camera == "Top":
-        camera_js = "viewer.rotate(90, {x: 1, y: 0, z: 0});"
+        camera_js = "viewer.zoomTo(); viewer.rotate(90, {{x: 1, y: 0, z: 0}});"
 
     spin_code = "viewer.spin(true);" if spin else "viewer.spin(false);"
 
@@ -60,7 +69,7 @@ def render_structure(
     <head>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.0.3/3Dmol-min.js"></script>
         <style>
-            html, body, #container {{ width: 100%; height: 100%; margin: 0; background-color: #0b0f19; }}
+            html, body, #container {{ width: 100%; height: 100%; margin: 0; background-color: #0b0f19; overflow: hidden; }}
         </style>
     </head>
     <body>
@@ -70,13 +79,13 @@ def render_structure(
             let element = document.getElementById("container");
             let config = {{ backgroundColor: "#0b0f19" }};
             let viewer = $3Dmol.createViewer(element, config);
+            
             viewer.addModel(pdbData, "pdb");
             
-            viewer.setStyle({{}}, {{{rep}: {{color: 'spectrum'}}}});
-            {color_js}
+            // Apply styles
+            {secondary_color_js}
             {highlight_js}
             
-            viewer.zoomTo();
             {camera_js}
             {spin_code}
             
@@ -98,14 +107,16 @@ def render_secondary_structure_3d(
     camera: str = "Default",
     highlight_position: int | None = None,
 ) -> str:
-    """Generates a 3Dmol.js viewer explicitly colored by computed secondary structure across all chains."""
+    """Generates a 3Dmol.js viewer explicitly colored by computed secondary structure with full representation options."""
     pdb_json = json.dumps(pdb_text)
     
     rep_map = {
         "Cartoon": "cartoon",
         "Ribbon": "ribbon",
         "Trace": "trace",
-        "Tube": "tube"
+        "Tube": "tube",
+        "Stick": "stick",
+        "Sphere": "sphere"
     }
     rep = rep_map.get(representation, "cartoon")
 
@@ -117,15 +128,13 @@ def render_secondary_structure_3d(
     sheet_selector = ", ".join(sheet_res) if sheet_res else "-1"
     coil_selector = ", ".join(coil_res) if coil_res else "-1"
 
-    coil_display = "true" if show_coils else "false"
-
-    camera_js = ""
+    camera_js = "viewer.zoomTo();"
     if camera == "Front":
         camera_js = "viewer.zoomTo();"
     elif camera == "Side":
-        camera_js = "viewer.rotate(90, {x: 0, y: 1, z: 0});"
+        camera_js = "viewer.zoomTo(); viewer.rotate(90, {{x: 0, y: 1, z: 0}});"
     elif camera == "Top":
-        camera_js = "viewer.rotate(90, {x: 1, y: 0, z: 0});"
+        camera_js = "viewer.zoomTo(); viewer.rotate(90, {{x: 1, y: 0, z: 0}});"
 
     spin_code = "viewer.spin(true);" if spin else "viewer.spin(false);"
 
@@ -133,13 +142,15 @@ def render_secondary_structure_3d(
     if highlight_position is not None:
         highlight_js = f"viewer.addStyle({{resi: {highlight_position}}}, {{stick: {{color: 'yellow', radius: 0.4}}}});"
 
+    coil_action = f"viewer.setStyle({{resi: [{coil_selector}]}}, {{{rep}: {{color: '#8FA3BF'}}}});" if show_coils else f"viewer.setStyle({{resi: [{coil_selector}]}}, {{hidden: true}});"
+
     html = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.0.3/3Dmol-min.js"></script>
         <style>
-            html, body, #container {{ width: 100%; height: {height}px; margin: 0; background-color: #0b0f19; }}
+            html, body, #container {{ width: 100%; height: {height}px; margin: 0; background-color: #0b0f19; overflow: hidden; }}
         </style>
     </head>
     <body>
@@ -149,22 +160,21 @@ def render_secondary_structure_3d(
             let element = document.getElementById("container");
             let config = {{ backgroundColor: "#0b0f19" }};
             let viewer = $3Dmol.createViewer(element, config);
+            
             viewer.addModel(pdbData, "pdb");
 
+            // Base style
             viewer.setStyle({{}}, {{{rep}: {{color: '#8FA3BF'}}}});
+
+            // Color assignments
             viewer.setStyle({{resi: [{helix_selector}]}}, {{{rep}: {{color: '#FF2A6D'}}}});
             viewer.setStyle({{resi: [{sheet_selector}]}}, {{{rep}: {{color: '#05D9E8'}}}});
-
-            if ({coil_display}) {{
-                viewer.setStyle({{resi: [{coil_selector}]}}, {{{rep}: {{color: '#8FA3BF'}}}});
-            }} else {{
-                viewer.setStyle({{resi: [{coil_selector}]}}, {{hidden: true}});
-            }}
+            {coil_action}
 
             {highlight_js}
-            viewer.zoomTo();
             {camera_js}
             {spin_code}
+            
             viewer.render();
         </script>
     </body>

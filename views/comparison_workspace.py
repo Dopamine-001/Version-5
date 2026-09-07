@@ -1,45 +1,88 @@
 from __future__ import annotations
 
-import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from analysis.sequence import sequence_properties
 from core.alphafold import calculate_plddt, get_alphafold_structure
-from core.helpers import esc
 from core.uniprot import normalize_uniprot_record, search_uniprot
-from viewer.structure_viewer import render_structure
+from analysis.sequence_analysis import sequence_properties
+from viewer.py3d_viewer import render_structure
 
 
-def show_comparison(
-    p1: dict,
-    sequence1: str,
-    properties1: dict,
-    pdb1: str | None,
-    plddt1: float | None,
-    query2: str,
-) -> None:
-    """Fetches a second protein and renders a side-by-side comparison workspace."""
-    with st.spinner(f"Searching UniProt for comparison target: '{query2}'..."):
-        record2 = search_uniprot(query2)
+def esc(text: str) -> str:
+    return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-    if not record2:
-        st.error(f"Could not find a protein matching '{query2}'.")
+
+def show_comparison(*args, **kwargs) -> None:
+    """
+    Flexible comparison handler supporting two invocation styles:
+    1. show_comparison((query1, query2)) from the landing page.
+    2. show_comparison(p1, sequence1, properties1, pdb1, plddt1, query2) from a protein workspace.
+    """
+    # Case 1: Called from landing page with a pair of queries (tuple/list)
+    if len(args) == 1 and isinstance(args[0], (list, tuple)) and len(args[0]) == 2:
+        query1, query2 = args[0]
+        
+        with st.spinner(f"Searching UniProt for comparison targets..."):
+            record1 = search_uniprot(query1)
+            record2 = search_uniprot(query2)
+
+        if not record1:
+            st.error(f"Could not find a protein matching '{query1}'.")
+            return
+        if not record2:
+            st.error(f"Could not find a protein matching '{query2}'.")
+            return
+
+        p1 = normalize_uniprot_record(record1)
+        sequence1 = p1["sequence"]
+        if not sequence1:
+            st.error(f"No sequence data available for '{query1}'.")
+            return
+
+        p2 = normalize_uniprot_record(record2)
+        sequence2 = p2["sequence"]
+        if not sequence2:
+            st.error(f"No sequence data available for '{query2}'.")
+            return
+
+        with st.spinner(f"Fetching AlphaFold structures..."):
+            pdb1, _ = get_alphafold_structure(p1["accession"])
+            pdb2, _ = get_alphafold_structure(p2["accession"])
+
+        properties1 = sequence_properties(sequence1)
+        properties2 = sequence_properties(sequence2)
+        plddt1 = calculate_plddt(pdb1) if pdb1 else None
+        plddt2 = calculate_plddt(pdb2) if pdb2 else None
+
+    # Case 2: Called from protein workspace with explicit detailed parameters
+    elif len(args) == 6:
+        p1, sequence1, properties1, pdb1, plddt1, query2 = args
+        
+        with st.spinner(f"Searching UniProt for comparison target: '{query2}'..."):
+            record2 = search_uniprot(query2)
+
+        if not record2:
+            st.error(f"Could not find a protein matching '{query2}'.")
+            return
+
+        p2 = normalize_uniprot_record(record2)
+        sequence2 = p2["sequence"]
+
+        if not sequence2:
+            st.error("The comparison protein was found, but no sequence data was available.")
+            return
+
+        with st.spinner(f"Fetching AlphaFold structure for {p2['accession']}..."):
+            pdb2, _ = get_alphafold_structure(p2["accession"])
+
+        properties2 = sequence_properties(sequence2)
+        plddt2 = calculate_plddt(pdb2) if pdb2 else None
+    else:
+        st.error("Invalid comparison parameters passed.")
         return
 
-    p2 = normalize_uniprot_record(record2)
-    sequence2 = p2["sequence"]
-
-    if not sequence2:
-        st.error("The comparison protein was found, but no sequence data was available.")
-        return
-
-    with st.spinner(f"Fetching AlphaFold structure for {p2['accession']}..."):
-        pdb2, af_meta2 = get_alphafold_structure(p2["accession"])
-
-    properties2 = sequence_properties(sequence2)
-    plddt2 = calculate_plddt(pdb2) if pdb2 else None
-
+    # Render Comparative Layout
     st.markdown(
         f"""
         <div class="section-title">Comparative Analysis: {esc(p1['name'])} vs {esc(p2['name'])}</div>
@@ -93,5 +136,4 @@ def show_comparison(
             st.info("No structure available for Protein 2.")
 
 
-# Expose both function names to prevent cross-module import mismatches
 render_comparison = show_comparison

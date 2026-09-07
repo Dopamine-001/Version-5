@@ -1,157 +1,95 @@
-"""Interactive py3Dmol renderer for AlphaFold PDB structures."""
 from __future__ import annotations
 
-import json
-from typing import Optional
-
-import py3Dmol
-
-
-COLOR_SCHEMES = {
-    "Spectrum": "spectrum",
-    "Chain": "chain",
-    "Secondary structure": "ssPyMOL",
-}
-
-
-def _atom_style(representation: str, color_style: str) -> dict:
-    rep = representation.strip().lower()
-
-    if color_style == "Uniform":
-        if rep == "stick":
-            return {"stick": {"color": "#57d6ff", "radius": 0.18}}
-        if rep == "sphere":
-            return {"sphere": {"color": "#57d6ff", "scale": 0.34}}
-        if rep == "line":
-            return {"line": {"color": "#57d6ff", "linewidth": 1.5}}
-        if rep == "ribbon":
-            return {
-                "cartoon": {
-                    "color": "#57d6ff",
-                    "ribbon": True,
-                    "thickness": 0.35,
-                }
-            }
-        return {"cartoon": {"color": "#57d6ff"}}
-
-    scheme = COLOR_SCHEMES.get(color_style, "spectrum")
-
-    if rep == "stick":
-        return {"stick": {"colorscheme": scheme, "radius": 0.18}}
-    if rep == "sphere":
-        return {"sphere": {"colorscheme": scheme, "scale": 0.34}}
-    if rep == "line":
-        return {"line": {"colorscheme": scheme, "linewidth": 1.5}}
-    if rep == "ribbon":
-        return {
-            "cartoon": {
-                "colorscheme": scheme,
-                "ribbon": True,
-                "thickness": 0.35,
-            }
-        }
-    
-    return {"cartoon": {"colorscheme": scheme}}
-
+import base64
 
 def render_structure(
     pdb_text: str,
-    representation: str = "Stick",
+    representation: str = "Cartoon",
     color_style: str = "Spectrum",
     spin: bool = False,
-    highlight_position: Optional[int] = None,
+    highlight_position: int | None = None,
     highlight_mode: str = "Stick",
     camera: str = "Default",
 ) -> str:
-    if not pdb_text or not pdb_text.strip():
-        return (
-            "<div style='padding:2rem;color:#d7e8ff;font-family:Arial'>"
-            "No PDB structure available.</div>"
-        )
+    """Generates an interactive 3Dmol.js viewer HTML string for primary structures."""
+    encoded_pdb = base64.b64encode(pdb_text.encode("utf-8")).decode("utf-8")
+    
+    rep_map = {
+        "Stick": "stick",
+        "Sphere": "sphere",
+        "Cartoon": "cartoon",
+        "Ribbon": "ribbon",
+        "Line": "line",
+        "Surface": "surface",
+    }
+    rep = rep_map.get(representation, "cartoon")
 
-    viewer = py3Dmol.view(width="100%", height=560)
-    viewer.setBackgroundColor("#061126")
-    viewer.addModel(pdb_text, "pdb")
-    selection = {"model": 0}
+    color_js = "viewer.setStyle({}, {cartoon: {color: 'spectrum'}});"
+    if color_style == "Chain":
+        color_js = "viewer.setStyle({}, {cartoon: {color: 'chain'}});"
+    elif color_style == "Uniform":
+        color_js = "viewer.setStyle({}, {cartoon: {color: '#05D9E8'}});"
+    elif color_style == "Secondary structure":
+        color_js = """
+            viewer.setStyle({ss: 'h'}, {cartoon: {color: '#FF2A6D'}});
+            viewer.setStyle({ss: 's'}, {cartoon: {color: '#05D9E8'}});
+            viewer.setStyle({ss: 'c'}, {cartoon: {color: '#8FA3BF'}});
+        """
 
-    # Always clear the model before applying exactly one requested base
-    # representation. This prevents a previous Cartoon/Ribbon style from
-    # leaking into Stick/Sphere when Streamlit reruns the page.
-    viewer.setStyle(selection, {})
-
-    rep = representation.strip().lower()
-    if rep == "surface":
-        # Surface is the only mode that intentionally adds a surface object.
-        viewer.addSurface(
-            py3Dmol.VDW,
-            {
-                "opacity": 0.72,
-                "colorscheme": COLOR_SCHEMES.get(color_style, "spectrum")
-                if color_style != "Uniform"
-                else None,
-                "color": "#57d6ff" if color_style == "Uniform" else None,
-            },
-            selection,
-        )
-    else:
-        viewer.setStyle(selection, _atom_style(representation, color_style))
-
+    highlight_js = ""
     if highlight_position is not None:
-        try:
-            residue = int(highlight_position)
-            residue_sel = {"model": 0, "resi": residue}
-            if highlight_mode == "Sphere":
-                viewer.addStyle(
-                    residue_sel,
-                    {"sphere": {"color": "#ffd166", "scale": 0.62}},
-                )
-            else:
-                viewer.addStyle(
-                    residue_sel,
-                    {"stick": {"color": "#ffd166", "radius": 0.32}},
-                )
-        except (TypeError, ValueError):
-            pass
+        hm = "stick" if highlight_mode == "Stick" else "sphere"
+        highlight_js = f"""
+            viewer.addStyle({{resi: {highlight_position}}}, {{{hm}: {{color: 'yellow', radius: 0.3}}}});
+        """
 
-    # Fit before and after orientation. 3Dmol documents zoomTo() as the
-    # method that centers the selected atoms and adjusts the slab.
-    viewer.zoomTo(selection)
-
+    camera_js = ""
     if camera == "Front":
-        viewer.rotate(90, "x")
+        camera_js = "viewer.zoomTo();"
     elif camera == "Side":
-        viewer.rotate(90, "y")
+        camera_js = "viewer.rotate(90, {x: 0, y: 1, z: 0});"
     elif camera == "Top":
-        viewer.rotate(90, "z")
+        camera_js = "viewer.rotate(90, {x: 1, y: 0, z: 0});"
 
-    viewer.zoomTo(selection)
-    viewer.spin("y", 1) if spin else viewer.spin(False)
-    viewer.render()
+    spin_code = "viewer.spin(true);" if spin else "viewer.spin(false);"
 
-    return viewer._make_html()
-
-
-def _escape_pdb_for_js(pdb_text: str) -> str:
-    """Make a PDB string safe inside a JS template literal."""
-    return (
-        pdb_text.replace("\\", "\\\\")
-        .replace("`", "\\`")
-        .replace("${", "\\${")
-    )
-
-
-def _ranges_to_resi(ranges) -> list:
-    """Flatten [{'start':a,'end':b}, ...] into a sorted unique residue list."""
-    resi = []
-    for item in ranges or []:
-        try:
-            start, end = int(item["start"]), int(item["end"])
-        except (KeyError, TypeError, ValueError):
-            continue
-        if end < start:
-            start, end = end, start
-        resi.extend(range(start, end + 1))
-    return sorted(set(resi))
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script src="https://cdnjs.cloudflare.com/ajax5/libs/3Dmol/2.0.3/3Dmol-min.js"></script>
+        <style>
+            html, body, #container {{ width: 100%; height: 100%; margin: 0; background-color: #0b0f19; }}
+        </style>
+    </head>
+    <body>
+        <div id="container"></div>
+        <script>
+            let pdbData = atob("{encoded_pdb}");
+            let element = document.getElementById("container");
+            let config = {{ backgroundColor: "#0b0f19" }};
+            let viewer = $3Dmol.createViewer(element, config);
+            viewer.addModel(pdbData, "pdb");
+            
+            viewer.setStyle({{}}, {{{rep}: {{color: 'spectrum'}}}});
+            {color_js}
+            {highlight_js}
+            
+            viewer.zoomTo();
+            {camera_js}
+            {spin_code}
+            
+            let rotationTimer = null;
+            function toggleSpin(enabled) {{
+                viewer.spin(enabled);
+            }}
+            
+            viewer.render();
+        </script>
+    </body>
+    </html>
+    """
+    return html
 
 
 def render_secondary_structure_3d(
@@ -160,78 +98,87 @@ def render_secondary_structure_3d(
     height: int = 560,
     spin: bool = False,
     show_coils: bool = True,
-    background: str = "#061126",
+    representation: str = "Cartoon",
+    camera: str = "Default",
+    highlight_position: int | None = None,
 ) -> str:
-    """Cartoon view colour-coded by secondary structure element.
+    """Generates a 3Dmol.js viewer explicitly colored by computed secondary structure across all chains."""
+    encoded_pdb = base64.b64encode(pdb_text.encode("utf-8")).decode("utf-8")
+    
+    rep_map = {
+        "Cartoon": "cartoon",
+        "Ribbon": "ribbon",
+        "Trace": "trace",
+        "Tube": "tube"
+    }
+    rep = rep_map.get(representation, "cartoon")
 
-    Alpha helices  -> pink/red ovals
-    Beta strands   -> cyan arrows
-    Turns          -> amber
-    Coils / loops  -> neutral grey trace
+    # Build individual residue color selectors based on sec_struct dictionary
+    helix_res = [str(k) for k, v in sec_struct.items() if v == "H"]
+    sheet_res = [str(k) for k, v in sec_struct.items() if v == "E"]
+    coil_res = [str(k) for k, v in sec_struct.items() if v == "C"]
 
-    Built with py3Dmol (same rendering path as the main viewer) so the
-    3Dmol library is loaded exactly the way Streamlit's component iframe
-    expects. The previous hand-written <script> version could execute
-    before 3Dmol-min.js finished loading, leaving a blank panel.
+    helix_selector = ", ".join(helix_res) if helix_res else "-1"
+    sheet_selector = ", ".join(sheet_res) if sheet_res else "-1"
+    coil_selector = ", ".join(coil_res) if coil_res else "-1"
+
+    coil_display = "true" if show_coils else "false"
+
+    camera_js = ""
+    if camera == "Front":
+        camera_js = "viewer.zoomTo();"
+    elif camera == "Side":
+        camera_js = "viewer.rotate(90, {x: 0, y: 1, z: 0});"
+    elif camera == "Top":
+        camera_js = "viewer.rotate(90, {x: 1, y: 0, z: 0});"
+
+    spin_code = "viewer.spin(true);" if spin else "viewer.spin(false);"
+
+    highlight_js = ""
+    if highlight_position is not None:
+        highlight_js = f"viewer.addStyle({{resi: {highlight_position}}}, {{stick: {{color: 'yellow', radius: 0.3}}}});"
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.0.3/3Dmol-min.js"></script>
+        <style>
+            html, body, #container {{ width: 100%; height: {height}px; margin: 0; background-color: #0b0f19; }}
+        </style>
+    </head>
+    <body>
+        <div id="container"></div>
+        <script>
+            let pdbData = atob("{encoded_pdb}");
+            let element = document.getElementById("container");
+            let config = {{ backgroundColor: "#0b0f19" }};
+            let viewer = $3Dmol.createViewer(element, config);
+            viewer.addModel(pdbData, "pdb");
+
+            // Default base style
+            viewer.setStyle({{}}, {{{rep}: {{color: '#8FA3BF'}}}});
+
+            // Color helices (Alpha-helix: Red/Pink #FF2A6D)
+            viewer.setStyle({{resi: [{helix_selector}]}}, {{{rep}: {{color: '#FF2A6D'}}}});
+
+            // Color sheets (Beta-sheet: Cyan #05D9E8)
+            viewer.setStyle({{resi: [{sheet_selector}]}}, {{{rep}: {{color: '#05D9E8'}}}});
+
+            // Color coils / loops
+            if ({coil_display}) {{
+                viewer.setStyle({{resi: [{coil_selector}]}}, {{{rep}: {{color: '#8FA3BF'}}}});
+            }} else {{
+                viewer.setStyle({{resi: [{coil_selector}]}}, {{hidden: true}});
+            }}
+
+            {highlight_js}
+            viewer.zoomTo();
+            {camera_js}
+            {spin_code}
+            viewer.render();
+        </script>
+    </body>
+    </html>
     """
-    if not pdb_text or not pdb_text.strip():
-        return (
-            "<div style='padding:2rem;color:#d7e8ff;font-family:Arial'>"
-            "No PDB structure available.</div>"
-        )
-
-    sec_struct = sec_struct or {}
-    helix_resi = _ranges_to_resi(sec_struct.get("helices"))
-    sheet_resi = _ranges_to_resi(sec_struct.get("sheets"))
-    turn_resi = _ranges_to_resi(sec_struct.get("turns"))
-    # A residue belongs to one element only; helices/sheets win over turns.
-    claimed = set(helix_resi) | set(sheet_resi)
-    turn_resi = [r for r in turn_resi if r not in claimed]
-
-    viewer = py3Dmol.view(width="100%", height=height)
-    viewer.setBackgroundColor(background)
-    viewer.addModel(pdb_text, "pdb")
-    viewer.setStyle({"model": 0}, {})
-
-    # 1. Baseline: thin grey trace for coils / loops.
-    viewer.setStyle(
-        {"model": 0},
-        {
-            "cartoon": {
-                "color": "#8fa3bf",
-                "style": "trace",
-                "thickness": 0.25,
-                "opacity": 0.85 if show_coils else 0.15,
-            }
-        },
-    )
-
-    # 2. Alpha helices - pink/red oval ribbons.
-    if helix_resi:
-        viewer.setStyle(
-            {"model": 0, "resi": helix_resi},
-            {"cartoon": {"color": "#FF2A6D", "style": "oval",
-                         "thickness": 0.8, "arrows": False}},
-        )
-
-    # 3. Beta strands - cyan arrows.
-    if sheet_resi:
-        viewer.setStyle(
-            {"model": 0, "resi": sheet_resi},
-            {"cartoon": {"color": "#05D9E8", "style": "arrow",
-                         "arrows": True, "thickness": 0.8}},
-        )
-
-    # 4. Turns - amber.
-    if turn_resi:
-        viewer.setStyle(
-            {"model": 0, "resi": turn_resi},
-            {"cartoon": {"color": "#FFB703", "style": "oval",
-                         "thickness": 0.5}},
-        )
-
-    viewer.zoomTo({"model": 0})
-    viewer.spin("y", 1) if spin else viewer.spin(False)
-    viewer.render()
-
-    return viewer._make_html()
+    return html

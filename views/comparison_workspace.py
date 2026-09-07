@@ -93,5 +93,5 @@ def show_comparison(
             st.info("No structure available for Protein 2.")
 
 
-# Alias to satisfy any module importing render_comparison instead of show_comparison
+# Expose both function names to prevent cross-module import mismatches
 render_comparison = show_comparison

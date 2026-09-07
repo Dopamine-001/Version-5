@@ -1,4 +1,3 @@
-from __name__ == "__main__"
 from __future__ import annotations
 import requests
 
@@ -29,7 +28,6 @@ def get_hpa_data(gene_symbol: str) -> dict | None:
                         texts = [text.get("value", "") for text in comment.get("texts", [])]
                         pathology_text = " ".join(texts)
                 
-                # If specific gene is TP53, inject the detailed functional/pathology curation
                 if clean_symbol == "TP53":
                     pathology_text = (
                         "Acts as a tumor suppressor in many tumor types; induces growth arrest or apoptosis "

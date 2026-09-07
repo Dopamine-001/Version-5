@@ -12,7 +12,7 @@ def render_structure(
     highlight_mode: str = "Stick",
     camera: str = "Default",
 ) -> str:
-    """Generates a safe, fully tested 3Dmol.js viewer HTML string for primary structures."""
+    """Generates a safe 3Dmol.js viewer HTML string for primary structures."""
     pdb_json = json.dumps(pdb_text)
     
     rep_map = {
@@ -58,9 +58,9 @@ def render_structure(
     if camera == "Front":
         camera_js = "viewer.zoomTo();"
     elif camera == "Side":
-        camera_js = "viewer.zoomTo(); viewer.rotate(90, {{x: 0, y: 1, z: 0}});"
+        camera_js = "viewer.zoomTo(); viewer.rotate(90, {x: 0, y: 1, z: 0});"
     elif camera == "Top":
-        camera_js = "viewer.zoomTo(); viewer.rotate(90, {{x: 1, y: 0, z: 0}});"
+        camera_js = "viewer.zoomTo(); viewer.rotate(90, {x: 1, y: 0, z: 0});"
     else:
         camera_js = "viewer.zoomTo();"
 
@@ -153,9 +153,9 @@ def render_secondary_structure_3d(
     if camera == "Front":
         camera_js = "viewer.zoomTo();"
     elif camera == "Side":
-        camera_js = "viewer.zoomTo(); viewer.rotate(90, {{x: 0, y: 1, z: 0}});"
+        camera_js = "viewer.zoomTo(); viewer.rotate(90, {x: 0, y: 1, z: 0});"
     elif camera == "Top":
-        camera_js = "viewer.zoomTo(); viewer.rotate(90, {{x: 1, y: 0, z: 0}});"
+        camera_js = "viewer.zoomTo(); viewer.rotate(90, {x: 1, y: 0, z: 0});"
     else:
         camera_js = "viewer.zoomTo();"
 
@@ -185,7 +185,7 @@ def render_secondary_structure_3d(
                 {camera_js}
                 {spin_code}
                 viewer.render();
-            } catch (err) {{
+            }} catch (err) {{
                 console.error("3Dmol secondary structure rendering error:", err);
             }}
         </script>
@@ -193,3 +193,7 @@ def render_secondary_structure_3d(
     </html>
     """
     return html
+
+
+# Alias to satisfy any import lookup looking for render_secondary_structure
+render_secondary_structure = render_secondary_structure_3d

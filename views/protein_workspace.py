@@ -60,8 +60,12 @@ def show_protein(protein_query: str) -> None:
     protein = normalize_uniprot_record(record)
     sequence = protein["sequence"]
 
-    gene_sym = protein.get("gene", "").split(",")[0].strip()
-    ncbi_results = search_ncbi_gene(gene_sym, db="gene", retmax=1) if gene_sym else []
+    # Robust gene symbol extraction to prevent cross-gene lookups (e.g., TP53 vs APP)
+    raw_gene = protein.get("gene", "")
+    gene_sym = raw_gene.split(",")[0].split()[0].strip() if raw_gene else ""
+    query_term = gene_sym if gene_sym and len(gene_sym) > 1 else protein.get("name", "").split()[0]
+
+    ncbi_results = search_ncbi_gene(query_term, db="gene", retmax=1) if query_term else []
     ncbi_info = ncbi_results[0] if ncbi_results else {}
 
     if not sequence:

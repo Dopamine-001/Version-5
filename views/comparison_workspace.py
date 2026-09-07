@@ -11,7 +11,7 @@ from core.uniprot import normalize_uniprot_record, search_uniprot
 from viewer.structure_viewer import render_structure
 
 
-def render_comparison(
+def show_comparison(
     p1: dict,
     sequence1: str,
     properties1: dict,

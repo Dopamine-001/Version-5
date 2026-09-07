@@ -1,4 +1,3 @@
-from __name__ == "__main__"  # Standard guard if needed
 from __future__ import annotations
 import requests
 

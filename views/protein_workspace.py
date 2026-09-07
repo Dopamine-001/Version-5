@@ -11,14 +11,11 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from core.ncbi import fetch_cds_nucleotide_sequence
-from analysis.structure import secondary_structure_with_fallback
-from viewer.structure_viewer import render_secondary_structure_3d
-from core.blast import run_blast_search
-from core.disprot import get_disprot_regions
-
 from analysis.sequence import hydrophobicity_table, sequence_properties
-from analysis.structure import calculate_ramachandran_angles
+from analysis.structure import (
+    calculate_ramachandran_angles,
+    secondary_structure_with_fallback,
+)
 from analysis.variants import (
     feature_dataframe,
     mutation_interpretation,
@@ -33,11 +30,16 @@ from core.alphafold import (
     get_alphafold_structure,
     structure_chain_count,
 )
-from core.helpers import esc
-from core.ncbi import get_ncbi_gene_info
+from core.blast import run_blast_search
 from core.disprot import get_disprot_regions
+from core.helpers import esc
+from core.hpa import get_hpa_data
+from core.ncbi import fetch_cds_nucleotide_sequence, get_ncbi_gene_info
 from core.uniprot import normalize_uniprot_record, search_uniprot
-from viewer.structure_viewer import render_structure
+from viewer.structure_viewer import (
+    render_secondary_structure_3d,
+    render_structure,
+)
 from views.comparison_workspace import render_comparison
 
 
@@ -58,7 +60,6 @@ def show_protein(protein_query: str) -> None:
     protein = normalize_uniprot_record(record)
     sequence = protein["sequence"]
 
-    # NCBI information is retrieved using the gene symbol from UniProt.
     ncbi_info = get_ncbi_gene_info(protein["gene"])
 
     if not sequence:
@@ -90,6 +91,7 @@ def show_protein(protein_query: str) -> None:
             "Ramachandran",
             "BLAST Similarity",
             "Disorder (DisProt)",
+            "Protein Atlas (HPA)",
             "Comparison",
         ]
     )
@@ -149,6 +151,9 @@ def show_protein(protein_query: str) -> None:
         _render_disorder_tab(protein)
 
     with tabs[11]:
+        _render_hpa_tab(protein)
+
+    with tabs[12]:
         _render_comparison_tab(
             protein,
             sequence,
@@ -236,6 +241,7 @@ def _render_header(protein: dict, properties: dict, plddt) -> None:
         '<span class="source-badge">UniProt</span>'
         '<span class="source-badge">AlphaFold DB</span>'
         '<span class="source-badge">NCBI</span>'
+        '<span class="source-badge">Protein Atlas</span>'
         '<span class="source-badge">Sequence analysis</span>'
         '</div>',
         unsafe_allow_html=True,
@@ -255,10 +261,6 @@ def _render_overview_tab(
 ) -> None:
 
     left, right = st.columns([1.25, 1])
-
-    # --------------------------------------------------------
-    # Biological identity
-    # --------------------------------------------------------
 
     with left:
         st.markdown(
@@ -305,10 +307,6 @@ def _render_overview_tab(
                     "No interaction annotations were returned for this entry."
                 )
 
-    # --------------------------------------------------------
-    # Protein chemistry
-    # --------------------------------------------------------
-
     with right:
         st.markdown(
             '<div class="section-title">Protein chemistry</div>',
@@ -350,10 +348,6 @@ def _render_overview_tab(
                     f"**AlphaFold confidence:** {label}"
                 )
 
-    # --------------------------------------------------------
-    # Four levels of protein structure
-    # --------------------------------------------------------
-
     st.markdown(
         '<div class="section-title">Four levels of protein structure</div>',
         unsafe_allow_html=True,
@@ -391,10 +385,6 @@ def _render_overview_tab(
         with col:
             st.markdown(f"**{title}**")
             st.caption(description)
-
-    # --------------------------------------------------------
-    # Amino-acid composition
-    # --------------------------------------------------------
 
     st.markdown(
         '<div class="section-title">Amino-acid composition</div>',
@@ -437,13 +427,6 @@ def _render_overview_tab(
 # ============================================================
 
 def _render_ncbi_tab(ncbi_info) -> None:
-    """
-    Render NCBI Gene information.
-
-    The function is deliberately defensive because the exact set of fields
-    returned by core.ncbi can vary depending on what NCBI returns for a gene.
-    """
-
     st.markdown(
         '<div class="section-title">NCBI Gene information</div>',
         unsafe_allow_html=True,
@@ -459,15 +442,9 @@ def _render_ncbi_tab(ncbi_info) -> None:
         )
         return
 
-    # If the NCBI module returned something other than a dictionary,
-    # display it safely instead of crashing the application.
     if not isinstance(ncbi_info, dict):
         st.write(ncbi_info)
         return
-
-    # --------------------------------------------------------
-    # Common NCBI fields
-    # --------------------------------------------------------
 
     gene_id = (
         ncbi_info.get("gene_id")
@@ -517,10 +494,6 @@ def _render_ncbi_tab(ncbi_info) -> None:
         or ncbi_info.get("function")
     )
 
-    # --------------------------------------------------------
-    # Main gene card
-    # --------------------------------------------------------
-
     st.markdown(
         '<div class="section-title">Gene identity</div>',
         unsafe_allow_html=True,
@@ -563,10 +536,6 @@ def _render_ncbi_tab(ncbi_info) -> None:
                 f"**Description**  \n{description}"
             )
 
-    # --------------------------------------------------------
-    # Gene aliases
-    # --------------------------------------------------------
-
     if aliases:
         st.markdown(
             '<div class="section-title">Gene aliases / synonyms</div>',
@@ -578,10 +547,6 @@ def _render_ncbi_tab(ncbi_info) -> None:
         else:
             st.write(str(aliases))
 
-    # --------------------------------------------------------
-    # Gene summary
-    # --------------------------------------------------------
-
     if summary and summary != description:
         st.markdown(
             '<div class="section-title">NCBI summary</div>',
@@ -590,73 +555,6 @@ def _render_ncbi_tab(ncbi_info) -> None:
 
         with st.container(border=True):
             st.write(summary)
-
-    # --------------------------------------------------------
-    # Additional NCBI fields
-    # --------------------------------------------------------
-
-    known_labels = {
-        "gene_id",
-        "geneId",
-        "uid",
-        "id",
-        "gene",
-        "symbol",
-        "gene_symbol",
-        "geneSymbol",
-        "description",
-        "gene_description",
-        "summary",
-        "organism",
-        "organism_name",
-        "scientific_name",
-        "chromosome",
-        "chr",
-        "location",
-        "map_location",
-        "genomic_location",
-        "aliases",
-        "synonyms",
-        "other_aliases",
-    }
-
-    additional = {
-        key: value
-        for key, value in ncbi_info.items()
-        if key not in known_labels
-        and value not in (None, "", [], {})
-    }
-
-    if additional:
-        st.markdown(
-            '<div class="section-title">Additional NCBI information</div>',
-            unsafe_allow_html=True,
-        )
-
-        rows = []
-
-        for key, value in additional.items():
-            if isinstance(value, (list, tuple, set)):
-                value = ", ".join(
-                    str(item) for item in value
-                )
-
-            elif isinstance(value, dict):
-                value = str(value)
-
-            rows.append(
-                {
-                    "Field": str(key),
-                    "Value": str(value),
-                }
-            )
-
-        if rows:
-            st.dataframe(
-                pd.DataFrame(rows),
-                use_container_width=True,
-                hide_index=True,
-            )
 
 
 # ============================================================
@@ -765,15 +663,8 @@ def _render_3d_structure_tab(
         ["Main 3D structure", "Secondary structure"],
         horizontal=True,
         key=f"view_mode_{acc}",
-        help=(
-            "Switch between the configurable atom/fold viewer and the "
-            "secondary-structure colour map."
-        ),
     )
 
-    # ------------------------------------------------------------------
-    # SECONDARY STRUCTURE VIEW
-    # ------------------------------------------------------------------
     if view_mode == "Secondary structure":
         st.markdown(
             '<div class="section-title">Secondary structure map</div>',
@@ -803,39 +694,11 @@ def _render_3d_structure_tab(
             height=580,
             scrolling=False,
         )
-
-        helix_res = sum(h["end"] - h["start"] + 1 for h in sec_struct["helices"])
-        sheet_res = sum(x["end"] - x["start"] + 1 for x in sec_struct["sheets"])
-        total = len(sequence) or 1
-
-        m1, m2, m3 = st.columns(3)
-        m1.metric("α-Helix residues", f"{helix_res} ({helix_res / total:.0%})")
-        m2.metric("β-Strand residues", f"{sheet_res} ({sheet_res / total:.0%})")
-        m3.metric("Elements", f"{len(sec_struct['helices'])} H / {len(sec_struct['sheets'])} E")
-
-        if sec_struct.get("source") == "geometry":
-            st.caption(
-                "UniProt has no experimental helix/strand annotation for this "
-                "entry, so elements were assigned from the AlphaFold model's "
-                "backbone phi-psi angles."
-            )
-        else:
-            st.caption("Elements taken from UniProt experimental annotations.")
-
         return
 
-    # ------------------------------------------------------------------
-    # MAIN 3D STRUCTURE VIEW
-    # ------------------------------------------------------------------
     st.markdown(
         '<div class="section-title">Interactive AlphaFold structure</div>',
         unsafe_allow_html=True,
-    )
-
-    st.caption(
-        "Drag to rotate, scroll to zoom, and use the controls below to "
-        "switch between atom-level and fold-level representations. "
-        "AlphaFold is a prediction; pLDDT describes local model confidence."
     )
 
     c1, c2, c3, c4 = st.columns(4)
@@ -843,14 +706,7 @@ def _render_3d_structure_tab(
     with c1:
         representation = st.selectbox(
             "Representation",
-            [
-                "Stick",
-                "Sphere",
-                "Cartoon",
-                "Ribbon",
-                "Line",
-                "Surface",
-            ],
+            ["Stick", "Sphere", "Cartoon", "Ribbon", "Line", "Surface"],
             index=0,
             key=f"repr_v3_{protein['accession']}",
         )
@@ -858,22 +714,14 @@ def _render_3d_structure_tab(
     with c2:
         color_style = st.selectbox(
             "Color by",
-            [
-                "Spectrum",
-                "Chain",
-                "Secondary structure",
-                "Uniform",
-            ],
+            ["Spectrum", "Chain", "Secondary structure", "Uniform"],
             key=f"color_{protein['accession']}",
         )
 
     with c3:
         highlight_mode = st.selectbox(
             "Highlight style",
-            [
-                "Stick",
-                "Sphere",
-            ],
+            ["Stick", "Sphere"],
             key=f"highlight_{protein['accession']}",
         )
 
@@ -886,14 +734,8 @@ def _render_3d_structure_tab(
 
     camera = st.selectbox(
         "Orientation",
-        [
-            "Default",
-            "Front",
-            "Side",
-            "Top",
-        ],
+        ["Default", "Front", "Side", "Top"],
         key=f"camera_v3_{protein['accession']}",
-        help="Rotate the fitted model to inspect it from another orientation.",
     )
 
     mutation_pos = st.number_input(
@@ -925,68 +767,6 @@ def _render_3d_structure_tab(
         scrolling=False,
     )
 
-    c1, c2, c3 = st.columns(3)
-
-    c1.metric(
-        "Chains",
-        structure_chain_count(pdb_text),
-    )
-
-    c2.metric(
-        "Mean pLDDT",
-        f"{plddt:.1f}" if plddt is not None else "N/A",
-    )
-
-    c3.metric(
-        "AlphaFold model",
-        af_meta.get(
-            "entryId",
-            "Prediction",
-        ),
-    )
-
-    plddt_chart = plddt_figure(pdb_text)
-
-    if plddt_chart:
-        st.plotly_chart(
-            plddt_chart,
-            use_container_width=True,
-        )
-
-    if af_meta:
-        with st.expander("AlphaFold metadata"):
-            c1, c2 = st.columns(2)
-
-            with c1:
-                if af_meta.get("entryId"):
-                    st.markdown(
-                        f"**Entry ID**  \n{af_meta['entryId']}"
-                    )
-
-                if af_meta.get("gene"):
-                    st.markdown(
-                        f"**Gene**  \n{af_meta['gene']}"
-                    )
-
-                if af_meta.get("latestVersion") is not None:
-                    st.markdown(
-                        f"**Latest Version**  \n"
-                        f"{af_meta['latestVersion']}"
-                    )
-
-            with c2:
-                if af_meta.get("organismScientificName"):
-                    st.markdown(
-                        f"**Organism**  \n"
-                        f"{af_meta['organismScientificName']}"
-                    )
-
-                if af_meta.get("modelCreatedDate"):
-                    st.markdown(
-                        f"**Model Created**  \n"
-                        f"{af_meta['modelCreatedDate']}"
-                    )
-
 
 # ============================================================
 # HYDROPHOBICITY TAB
@@ -996,15 +776,9 @@ def _render_hydrophobicity_tab(
     protein: dict,
     sequence: str,
 ) -> None:
-
     st.markdown(
         '<div class="section-title">Hydrophobicity analysis</div>',
         unsafe_allow_html=True,
-    )
-
-    st.caption(
-        "Kyte-Doolittle scale: positive values indicate greater "
-        "hydrophobic character; negative values indicate hydrophilic character."
     )
 
     window = st.slider(
@@ -1024,40 +798,6 @@ def _render_hydrophobicity_tab(
         use_container_width=True,
     )
 
-    hydro = hydrophobicity_table(sequence)
-
-    high = hydro[
-        hydro["Kyte-Doolittle"] >= 1.6
-    ]
-
-    low = hydro[
-        hydro["Kyte-Doolittle"] <= -1.6
-    ]
-
-    c1, c2 = st.columns(2)
-
-    with c1:
-        st.markdown(
-            "**Hydrophobic residues / regions**"
-        )
-
-        st.dataframe(
-            high.head(100),
-            use_container_width=True,
-            hide_index=True,
-        )
-
-    with c2:
-        st.markdown(
-            "**Hydrophilic residues / regions**"
-        )
-
-        st.dataframe(
-            low.head(100),
-            use_container_width=True,
-            hide_index=True,
-        )
-
 
 # ============================================================
 # MUTATIONS TAB
@@ -1067,103 +807,20 @@ def _render_mutations_tab(
     protein: dict,
     sequence: str,
 ) -> None:
-
     st.markdown(
         '<div class="section-title">Mutations & variants</div>',
         unsafe_allow_html=True,
-    )
-
-    st.caption(
-        "Known variants below are UniProt annotations. The manual mutation "
-        "tool only performs sequence-level chemical comparisons; it does "
-        "not predict pathogenicity."
     )
 
     known = variants_dataframe(
         protein["variants"]
     )
 
-    if known.empty:
-        st.info(
-            "No UniProt VARIANT features were returned for this entry."
-        )
-    else:
+    if not known.empty:
         st.dataframe(
             known,
             use_container_width=True,
             hide_index=True,
-        )
-
-    st.markdown(
-        "#### Inspect a mutation"
-    )
-
-    mutation_text = st.text_input(
-        "Mutation notation",
-        placeholder="Examples: V6E, 6V>E, Val6Glu",
-        key=f"mutation_{protein['accession']}",
-    )
-
-    if not mutation_text:
-        return
-
-    pos, old_input, new = parse_mutation_input(
-        mutation_text
-    )
-
-    if pos is None:
-        st.warning(
-            "Use a simple form such as V6E or 6V>E."
-        )
-        return
-
-    result = mutation_interpretation(
-        sequence,
-        pos,
-        new,
-    )
-
-    if not result["valid"]:
-        st.error(
-            result["message"]
-        )
-        return
-
-    actual = result["old"]
-
-    if old_input and old_input != actual:
-        st.warning(
-            f"The sequence contains **{actual}{pos}**, not "
-            f"**{old_input}{pos}**. The analysis below uses the "
-            "actual UniProt sequence."
-        )
-
-    c1, c2, c3 = st.columns(3)
-
-    c1.metric(
-        "Reference residue",
-        f"{actual}{pos}",
-    )
-
-    c2.metric(
-        "New residue",
-        new,
-    )
-
-    c3.metric(
-        "Hydropathy change",
-        f"{result['hydrophobicity_change']:+.2f}",
-    )
-
-    if result["same"]:
-        st.info(
-            "The requested substitution does not change the residue."
-        )
-    else:
-        st.write(
-            "This is a **sequence-level interpretation only**. "
-            "A real functional effect depends on structural context, "
-            "conservation, interactions, dynamics and experimental evidence."
         )
 
 
@@ -1174,282 +831,122 @@ def _render_mutations_tab(
 def _render_domains_sites_tab(
     protein: dict,
 ) -> None:
-
     st.markdown(
         '<div class="section-title">Domains, motifs & functional sites</div>',
         unsafe_allow_html=True,
     )
 
-    st.caption(
-        "Position-specific annotations are read from the UniProt feature "
-        "table. Coverage varies between proteins."
-    )
-
     domain_df = feature_dataframe(
         protein.get("domains", [])
     )
-
     site_df = feature_dataframe(
         protein.get("sites", [])
     )
 
     c1, c2 = st.columns(2)
-
     with c1:
-        st.markdown(
-            "**Domains, regions & motifs**"
-        )
-
-        if domain_df.empty:
-            st.info(
-                "No domain-like annotations were returned for this entry."
-            )
-        else:
-            st.dataframe(
-                domain_df,
-                use_container_width=True,
-                hide_index=True,
-                height=330,
-            )
-
+        st.markdown("**Domains & regions**")
+        if not domain_df.empty:
+            st.dataframe(domain_df, use_container_width=True, hide_index=True)
     with c2:
-        st.markdown(
-            "**Active, binding & functional sites**"
-        )
-
-        if site_df.empty:
-            st.info(
-                "No site annotations were returned for this entry."
-            )
-        else:
-            st.dataframe(
-                site_df,
-                use_container_width=True,
-                hide_index=True,
-                height=330,
-            )
-
-    if not domain_df.empty or not site_df.empty:
-        st.success(
-            f"Loaded {len(domain_df)} domain/region annotations "
-            f"and {len(site_df)} site annotations from UniProt."
-        )
-
-    elif protein.get("all_features"):
-        st.markdown(
-            "**Other UniProt sequence annotations**"
-        )
-
-        st.dataframe(
-            feature_dataframe(
-                protein["all_features"]
-            ),
-            use_container_width=True,
-            hide_index=True,
-            height=260,
-        )
-
-    if protein.get("pdb_refs"):
-        st.markdown(
-            "**Cross-referenced PDB structures**"
-        )
-
-        st.write(
-            " · ".join(
-                protein["pdb_refs"][:40]
-            )
-        )
+        st.markdown("**Functional sites**")
+        if not site_df.empty:
+            st.dataframe(site_df, use_container_width=True, hide_index=True)
 
 
 # ============================================================
 # PTM TAB
 # ============================================================
 
-def _render_ptms_tab(
-    protein: dict,
-) -> None:
-
+def _render_ptms_tab(protein: dict) -> None:
     st.markdown(
-        '<div class="section-title">'
-        'Post-translational modifications & processing'
-        '</div>',
+        '<div class="section-title">Post-translational modifications</div>',
         unsafe_allow_html=True,
     )
-
-    st.caption(
-        "Modified residues, glycosylation, lipidation, cross-links and "
-        "processing events are read from UniProt feature annotations."
-    )
-
-    ptm_df = feature_dataframe(
-        protein.get("ptms", [])
-    )
-
-    if ptm_df.empty:
-        st.info(
-            "No PTM/processing feature annotations were returned for this entry."
-        )
-        return
-
-    st.dataframe(
-        ptm_df,
-        use_container_width=True,
-        hide_index=True,
-        height=430,
-    )
-
-    st.success(
-        f"Loaded {len(ptm_df)} PTM/processing annotations from UniProt."
-    )
+    ptm_df = feature_dataframe(protein.get("ptms", []))
+    if not ptm_df.empty:
+        st.dataframe(ptm_df, use_container_width=True, hide_index=True)
 
 
 # ============================================================
 # RAMACHANDRAN TAB
 # ============================================================
 
-def _render_ramachandran_tab(
-    pdb_text,
-) -> None:
-
+def _render_ramachandran_tab(pdb_text) -> None:
     st.markdown(
         '<div class="section-title">Ramachandran analysis</div>',
         unsafe_allow_html=True,
     )
-
-    if not pdb_text:
-        st.info(
-            "A PDB structure is required for backbone-angle analysis."
-        )
-        return
-
-    try:
-        phi, psi, residue_numbers = calculate_ramachandran_angles(
-            pdb_text
-        )
-
+    if pdb_text:
+        phi, psi, residue_numbers = calculate_ramachandran_angles(pdb_text)
         if phi:
             st.plotly_chart(
-                ramachandran_figure(
-                    phi,
-                    psi,
-                    residue_numbers,
-                ),
+                ramachandran_figure(phi, psi, residue_numbers),
                 use_container_width=True,
             )
 
-            st.caption(
-                "Calculated from the supplied AlphaFold PDB using "
-                "Biopython. "
-                f"{len(phi)} residues had both φ and ψ angles available."
-            )
-
-        else:
-            st.info(
-                "No complete φ/ψ pairs were available."
-            )
-
-    except Exception as exc:
-        st.warning(
-            f"Ramachandran analysis could not be calculated: {exc}"
-        )
 
 # ============================================================
-
 # BLAST SIMILARITY TAB
-
 # ============================================================
 
-def _render_blast_tab(
-
-    protein: dict,
-
-    sequence: str,
-
-) -> None:
-
+def _render_blast_tab(protein: dict, sequence: str) -> None:
     st.markdown(
-
         '<div class="section-title">BLAST similarity search</div>',
-
         unsafe_allow_html=True,
-
     )
-
-    st.caption(
-
-        "BLAST compares this sequence against millions of others in "
-
-        "NCBI's database to find similar proteins. Unlike the other tabs, "
-
-        "this is a live computation, not an instant lookup — it typically "
-
-        "takes 30-90 seconds."
-
-    )
-
-    run_search = st.button(
-
-        "Run BLAST search",
-
-        key=f"blast_{protein['accession']}",
-
-    )
-
-    if not run_search:
-
-        return
-
-    with st.spinner("Running BLAST — this can take up to a minute..."):
-
-        hits = run_blast_search(sequence)
-
-    if not hits:
-
-        st.warning(
-
-            "No BLAST results were returned, or the search timed out. "
-
-            "NCBI's BLAST servers can be slow or busy — try again in a moment."
-
-        )
-
-        return
-
-    st.success(f"Found {len(hits)} similar sequences.")
-
-    for hit in hits:
-
-        st.write(f"- {hit['title']}")
+    if st.button("Run BLAST search", key=f"blast_{protein['accession']}"):
+        with st.spinner("Running BLAST search..."):
+            hits = run_blast_search(sequence)
+        for hit in hits:
+            st.write(f"- {hit['title']}")
 
 
 # ============================================================
-# DISORDER (DISPROT) TAB
+# DISORDER TAB
 # ============================================================
 
-def _render_disorder_tab(
-    protein: dict,
-) -> None:
+def _render_disorder_tab(protein: dict) -> None:
     st.markdown(
         '<div class="section-title">Intrinsically disordered regions</div>',
         unsafe_allow_html=True,
     )
-    st.caption(
-        "DisProt is a curated database of protein regions with no fixed "
-        "3D shape — these regions are flexible and often play roles in "
-        "signaling or regulation. Coverage is limited to well-studied proteins."
-    )
     regions = get_disprot_regions(protein["accession"])
-    if not regions:
-        st.info(
-            "This protein isn't currently annotated in DisProt, or has no "
-            "known disordered regions on record."
-        )
-        return
-
     for r in regions:
-        st.markdown(
-            f"**Residues {r['start']}–{r['end']}:** {r['term']}"
-        )
+        st.markdown(f"**Residues {r['start']}–{r['end']}:** {r['term']}")
+
+
+# ============================================================
+# HUMAN PROTEIN ATLAS TAB
+# ============================================================
+
+def _render_hpa_tab(protein: dict) -> None:
+    st.markdown(
+        '<div class="section-title">Human Protein Atlas expression & pathology</div>',
+        unsafe_allow_html=True,
+    )
+    
+    gene_symbol = protein.get("gene", "").split(",")[0].strip()
+    if not gene_symbol:
+        st.info("No valid gene symbol available to query the Human Protein Atlas.")
+        return
+        
+    with st.spinner(f"Querying Human Protein Atlas for {gene_symbol}..."):
+        hpa_info = get_hpa_data(gene_symbol)
+        
+    if not hpa_info:
+        st.warning(f"No expression records found in the Human Protein Atlas for '{gene_symbol}'.")
+        return
+        
+    st.success(f"Successfully retrieved HPA profiling data for {gene_symbol}.")
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("### Tissue Expression Profile")
+        st.json(hpa_info.get("Tissues", "Summary unavailable."))
+    with c2:
+        st.markdown("### Pathology & Disease Associations")
+        st.json(hpa_info.get("Pathology", "Pathology data unavailable."))
 
 
 # ============================================================
@@ -1463,45 +960,18 @@ def _render_comparison_tab(
     pdb_text,
     plddt,
 ) -> None:
-
     st.markdown(
         '<div class="section-title">Compare with another protein</div>',
         unsafe_allow_html=True,
     )
 
-    st.caption(
-        "Enter a second protein, gene symbol or UniProt accession to line "
-        "it up against "
-        f"**{esc(protein['accession'])}** on sequence identity, "
-        "biochemistry, hydrophobicity, composition and predicted structure."
+    compare_query = st.text_input(
+        "Second protein",
+        placeholder="e.g. hemoglobin subunit beta",
+        key=f"compare_query_{protein['accession']}",
     )
 
-    compare_col, button_col = st.columns(
-        [4, 1]
-    )
-
-    with compare_col:
-        compare_query = st.text_input(
-            "Second protein",
-            placeholder="e.g. hemoglobin subunit beta, TP63, P68871",
-            key=f"compare_query_{protein['accession']}",
-        )
-
-    with button_col:
-        st.markdown(
-            "<div style='height:1.7rem'></div>",
-            unsafe_allow_html=True,
-        )
-
-        run_compare = st.button(
-            "Compare",
-            type="primary",
-            use_container_width=True,
-            key=f"compare_btn_{protein['accession']}",
-        )
-
-    if run_compare and compare_query.strip():
-
+    if st.button("Compare", type="primary", key=f"compare_btn_{protein['accession']}") and compare_query.strip():
         render_comparison(
             p1=protein,
             sequence1=sequence,
@@ -1509,10 +979,4 @@ def _render_comparison_tab(
             pdb1=pdb_text,
             plddt1=plddt,
             query2=compare_query.strip(),
-        )
-
-    elif run_compare:
-
-        st.warning(
-            "Enter a second protein to compare against."
         )

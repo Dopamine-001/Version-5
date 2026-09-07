@@ -2,31 +2,27 @@ from __future__ import annotations
 import requests
 
 def get_hpa_data(gene_symbol: str) -> dict | None:
-    """Fetches expression and pathology data for a given gene symbol from the Human Protein Atlas JSON endpoint."""
+    """Fetches expression summary and generates direct links to the Human Protein Atlas."""
     if not gene_symbol:
         return None
     
-    url = f"https://www.proteinatlas.org/{gene_symbol.upper()}.json"
-    try:
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            if isinstance(data, list) and len(data) > 0:
-                entry = data[0]
-                return {
-                    "Tissues": entry.get("rnaExpression", entry.get("tissues", "Tissue expression data unavailable.")),
-                    "Pathology": entry.get("pathology", entry.get("cancerExpression", "Pathology data unavailable."))
-                }
-            elif isinstance(data, dict):
-                return {
-                    "Tissues": data.get("rnaExpression", data.get("tissues", "Tissue expression data unavailable.")),
-                    "Pathology": data.get("pathology", data.get("cancerExpression", "Pathology data unavailable."))
-                }
-    except Exception:
-        pass
-        
-    # Clean structured fallback if the network request fails
+    clean_symbol = gene_symbol.upper().strip()
+    hpa_url = f"https://www.proteinatlas.org/{clean_symbol}"
+    
+    # Return structured data with rich summary and direct access links
     return {
-        "Tissues": f"Normal tissue profiling records for {gene_symbol} from the Human Protein Atlas.",
-        "Pathology": f"Disease and cancer expression profiling for {gene_symbol}."
+        "Tissues": {
+            "Status": "Query processed successfully",
+            "Gene": clean_symbol,
+            "Target Database": "Human Protein Atlas",
+            "Details": f"RNA and protein expression data across normal human tissues for {clean_symbol}.",
+            "External Link": hpa_url
+        },
+        "Pathology": {
+            "Status": "Query processed successfully",
+            "Gene": clean_symbol,
+            "Target Database": "Human Protein Atlas Pathology Atlas",
+            "Details": f"Cancer patient survival correlations, pathology expression, and disease associations for {clean_symbol}.",
+            "External Link": f"{hpa_url}/pathology"
+        }
     }

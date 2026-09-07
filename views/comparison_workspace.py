@@ -13,7 +13,7 @@ import streamlit.components.v1 as components
 
 from core.alphafold import calculate_plddt, get_alphafold_structure
 from core.uniprot import normalize_uniprot_record, search_uniprot
-from analysis.sequence_analysis import sequence_properties
+from ..analysis.sequence_analysis import sequence_properties
 from viewer.py3d_viewer import render_structure
 
 

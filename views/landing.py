@@ -29,14 +29,14 @@ def render_landing() -> None:
         if st.button("← Back to Protein Explorer", key="back_to_landing_compare"):
             st.session_state.pop("active_compare_queries", None)
             st.rerun()
-        show_comparison(*active_compare)
+        show_comparison(active_compare)
         return
 
     st.markdown(
         """
         <div class="hero">
             <div class="kicker">Structural biology · Bioinformatics · Protein science</div>
-            <div class="hero-title">Protein Explorer <span style="color:#43d9d0">3.0</span></div>
+            <div class="hero-title">Protein Explorer <span style="color:#6366f1">3.0</span></div>
             <div class="hero-copy">
                 A professional workspace for moving from amino-acid sequence to
                 biochemical properties, predicted structure, hydrophobicity,
@@ -70,7 +70,7 @@ def _render_explore_mode() -> None:
             key="protein_search",
         )
     with button_col:
-        explore = st.button("Explore", type="primary", use_container_width=True, key="explore_button")
+        explore = st.button("Explore", type="primary", width="stretch", key="explore_button")
 
     if explore and protein_query.strip():
         st.session_state["active_protein_query"] = protein_query.strip()
@@ -124,7 +124,7 @@ def _render_compare_mode() -> None:
         query2 = st.text_input("Second protein", placeholder="e.g. hemoglobin subunit beta")
     with c3:
         st.markdown("<div style='height:1.85rem'></div>", unsafe_allow_html=True)
-        compare = st.button("Compare", type="primary", use_container_width=True)
+        compare = st.button("Compare", type="primary", width="stretch")
 
     if compare and query1.strip() and query2.strip():
         st.session_state["active_compare_queries"] = (query1.strip(), query2.strip())

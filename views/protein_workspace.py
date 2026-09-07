@@ -23,7 +23,7 @@ from analysis.variants import (
     variants_dataframe,
 )
 from charts.sequence_charts import composition_figure, hydrophobicity_figure
-from charts.structure_charts import plddt_figure, ramachandran_figure
+from charts.structure_charts import contact_map_figure, plddt_figure, ramachandran_figure
 from config import AA_GROUPS, KYTEL_DOOLITTLE
 from core.alphafold import (
     calculate_plddt,
@@ -147,15 +147,14 @@ def show_protein(protein_query: str) -> None:
     with tabs[8]:
         _render_ramachandran_tab(pdb_text)
 
-    with tabs[9]:  # Ensure this index matches the position of "Contact Map" in your tabs list
-    st.markdown('<div class="section-title">Structural Contact Map (Cα Distance Matrix)</div>', unsafe_allow_html=True)
-    st.caption("Visualizes physical 3D distances between amino acid pairs to highlight tertiary folding domains and interaction interfaces.")
-    if pdb_text:
-        from charts.structure_charts import contact_map_figure
-        st.plotly_chart(contact_map_figure(pdb_text), use_container_width=True)
-    else:
-        st.info("No structure available for contact map generation.")
-    
+    with tabs[9]:
+        st.markdown('<div class="section-title">Structural Contact Map (Cα Distance Matrix)</div>', unsafe_allow_html=True)
+        st.caption("Visualizes physical 3D distances between amino acid pairs to highlight tertiary folding domains and interaction interfaces.")
+        if pdb_text:
+            st.plotly_chart(contact_map_figure(pdb_text), use_container_width=True)
+        else:
+            st.info("No structure available for contact map generation.")
+
     with tabs[10]:
         _render_blast_tab(protein, sequence)
 

@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+import sys
+import pathlib
+
+# Ensure root directory is in path so top-level packages (analysis, core, viewer) resolve reliably
+ROOT_DIR = pathlib.Path(__file__).parent.parent.resolve()
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
+
 import streamlit as st
 import streamlit.components.v1 as components
 

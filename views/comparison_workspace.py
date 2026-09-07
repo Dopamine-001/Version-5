@@ -115,6 +115,7 @@ def show_comparison(*args, **kwargs) -> None:
         unsafe_allow_html=True,
     )
 
+    # Metadata columns
     col1, col2 = st.columns(2)
 
     with col1:
@@ -122,22 +123,38 @@ def show_comparison(*args, **kwargs) -> None:
         st.write(f"**Name:** {p1['name']}")
         st.write(f"**Gene:** {p1['gene']}")
         st.write(f"**Organism:** {p1['organism']}")
-        st.metric("Length", f"{p1['length']} aa")
-        st.metric("Molecular Weight", f"{properties1['molecular_weight'] / 1000:.2f} kDa")
-        st.metric("Theoretical pI", f"{properties1['pI']:.2f}")
-        st.metric("GRAVY", f"{properties1['gravy']:.2f}")
-        st.metric("Mean pLDDT", f"{plddt1:.1f}" if plddt1 is not None else "N/A")
 
     with col2:
         st.markdown(f"### Protein 2: {esc(p2['accession'])}")
         st.write(f"**Name:** {p2['name']}")
         st.write(f"**Gene:** {p2['gene']}")
         st.write(f"**Organism:** {p2['organism']}")
-        st.metric("Length", f"{p2['length']} aa")
-        st.metric("Molecular Weight", f"{properties2['molecular_weight'] / 1000:.2f} kDa")
-        st.metric("Theoretical pI", f"{properties2['pI']:.2f}")
-        st.metric("GRAVY", f"{properties2['gravy']:.2f}")
-        st.metric("Mean pLDDT", f"{plddt2:.1f}" if plddt2 is not None else "N/A")
+
+    st.markdown("---")
+    st.markdown('<div class="section-title">Feature Comparison Matrix</div>', unsafe_allow_html=True)
+
+    # Comprehensive Comparison Table
+    mw1 = properties1['molecular_weight'] / 1000
+    mw2 = properties2['molecular_weight'] / 1000
+    pi1 = properties1['pI']
+    pi2 = properties2['pI']
+    gravy1 = properties1['gravy']
+    gravy2 = properties2['gravy']
+    len1 = p1['length']
+    len2 = p2['length']
+    val_plddt1 = f"{plddt1:.1f}" if plddt1 is not None else "N/A"
+    val_plddt2 = f"{plddt2:.1f}" if plddt2 is not None else "N/A"
+
+    comparison_data = [
+        {"Feature": "Accession", "Protein 1": p1['accession'], "Protein 2": p2['accession'], "Difference": "-"},
+        {"Feature": "Length (aa)", "Protein 1": len1, "Protein 2": len2, "Difference": f"{len2 - len1:+d}"},
+        {"Feature": "Molecular Weight (kDa)", "Protein 1": f"{mw1:.2f}", "Protein 2": f"{mw2:.2f}", "Difference": f"{mw2 - mw1:+.2f}"},
+        {"Feature": "Theoretical pI", "Protein 1": f"{pi1:.2f}", "Protein 2": f"{pi2:.2f}", "Difference": f"{pi2 - pi1:+.2f}"},
+        {"Feature": "GRAVY (Hydrophobicity)", "Protein 1": f"{gravy1:.2f}", "Protein 2": f"{gravy2:.2f}", "Difference": f"{gravy2 - gravy1:+.2f}"},
+        {"Feature": "Mean pLDDT (Confidence)", "Protein 1": val_plddt1, "Protein 2": val_plddt2, "Difference": "-"},
+    ]
+
+    st.table(comparison_data)
 
     st.markdown("---")
     st.markdown('<div class="section-title">Side-by-Side 3D Structural Comparison</div>', unsafe_allow_html=True)

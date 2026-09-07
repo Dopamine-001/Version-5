@@ -83,12 +83,14 @@ def get_ncbi_gene_info(gene_symbol: str) -> dict:
 
 
 def fetch_cds_nucleotide_sequence(protein: dict) -> dict:
-    """Fetches a linked CDS nucleotide sequence or searches Nuccore based on gene info."""
+    """Fetches a linked CDS nucleotide sequence or searches Nuccore based on gene info safely."""
     gene_symbol = protein.get("gene", "").split(",")[0].strip()
     if not gene_symbol:
         return {"sequence": "", "length": 0, "gc_content": 0.0, "accession": "", "description": ""}
 
-    search_url = f"{BASE_URL}esearch.fcgi?db=nuccore&term={urllib.parse.quote(gene_symbol + '[Gene] AND homo sapiens[Organism] AND biomol_mrna[PROP]')}&retmax=1&format=json{TOOL_PARAMS}"
+    # Broader search term to ensure nuccore successfully matches mRNA records
+    term = f"{gene_symbol}[Gene] AND Homo sapiens[Organism] AND mRNA[Filter]"
+    search_url = f"{BASE_URL}esearch.fcgi?db=nuccore&term={urllib.parse.quote(term)}&retmax=1&format=json{TOOL_PARAMS}"
     
     try:
         req = urllib.request.Request(search_url, headers={"User-Agent": "ProteinExplorer/1.0"})
@@ -96,6 +98,15 @@ def fetch_cds_nucleotide_sequence(protein: dict) -> dict:
             data = json.loads(response.read().decode())
             id_list = data.get("esearchresult", {}).get("idlist", [])
             
+            if not id_list:
+                # Fallback to general gene name search if mRNA filter returns nothing
+                fallback_term = f"{gene_symbol}[Gene] AND Homo sapiens[Organism]"
+                fallback_url = f"{BASE_URL}esearch.fcgi?db=nuccore&term={urllib.parse.quote(fallback_term)}&retmax=1&format=json{TOOL_PARAMS}"
+                req_fb = urllib.request.Request(fallback_url, headers={"User-Agent": "ProteinExplorer/1.0"})
+                with urllib.request.urlopen(req_fb) as fb_resp:
+                    fb_data = json.loads(fb_resp.read().decode())
+                    id_list = fb_data.get("esearchresult", {}).get("idlist", [])
+
             if not id_list:
                 return {"sequence": "", "length": 0, "gc_content": 0.0, "accession": "", "description": ""}
                 
@@ -124,5 +135,7 @@ def fetch_cds_nucleotide_sequence(protein: dict) -> dict:
                     "description": header,
                 }
     except Exception as e:
+        print(f"NCBI CDS Fetch Error: {e}")
+        return {"sequence": "", "length": 0, "gc_content": 0.0, "accession": "", "description": ""}
         print(f"NCBI CDS Fetch Error: {e}")
         return {"sequence": "", "length": 0, "gc_content": 0.0, "accession": "", "description": ""}

@@ -1,3 +1,4 @@
+# core/ncbi.py
 from __future__ import annotations
 
 import urllib.request
@@ -5,7 +6,6 @@ import urllib.parse
 import json
 
 BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
-# Providing tool and email prevents rate limits and HTTP 429 errors from NCBI
 TOOL_PARAMS = "&tool=ProteinExplorer&email=user@example.com"
 
 
@@ -44,19 +44,16 @@ def fetch_ncbi_summaries(db: str, id_list: list[str]) -> list[dict]:
                 if uid in result:
                     item = result[uid]
                     
-                    # Extract fields safely across different NCBI schema versions
                     gene_id = item.get("uid", item.get("geneid", uid))
                     symbol = item.get("name", item.get("symbol", item.get("title", "Unknown")))
                     description = item.get("description", item.get("summary", item.get("caption", "")))
                     
-                    # Handle organism block securely
                     org_info = item.get("organism", {})
                     if isinstance(org_info, dict):
                         organism = org_info.get("scientificname", org_info.get("name", "Unknown"))
                     else:
                         organism = str(org_info)
 
-                    # Handle chromosome mapping
                     loc = item.get("chromosome", item.get("genomicinfo", ""))
                     if isinstance(loc, list) and len(loc) > 0:
                         chromosome = loc[0].get("chrsort", loc[0].get("chrid", ""))

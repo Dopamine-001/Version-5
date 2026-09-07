@@ -1,9 +1,9 @@
+
 from __future__ import annotations
 
 import math
 import numpy as np
 from Bio.PDB import PDBParser
-from Bio.PDB.Polypeptide import drei_to_ein
 
 def calculate_ramachandran_angles(pdb_text: str):
     """Calculates Phi and Psi torsion angles from PDB text coordinates."""

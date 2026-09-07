@@ -1,32 +1,32 @@
 import streamlit as st
 
 def load_aesthetic_theme() -> None:
-    """Injects an aggressive, high-tech bioinformatics laboratory UI with glowing telemetry gridlines and organic sci-fi aesthetics."""
+    """Injects an elite cyberpunk-bioinformatics laboratory theme featuring an integrated SVG double-helix DNA strand and molecular grid backdrop."""
     st.markdown(
         """
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@500;700;900&family=Inter:wght@300;400;600&display=swap');
 
-            /* Global Sci-Fi Grid Background */
+            /* Global Sci-Fi Biological Grid & DNA Double-Helix Backdrop */
             .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-                background-color: #020408 !important;
+                background-color: #010308 !important;
                 background-image: 
-                    linear-gradient(rgba(5, 217, 232, 0.03) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(5, 217, 232, 0.03) 1px, transparent 1px),
-                    radial-gradient(circle at 50% 50%, rgba(14, 116, 144, 0.15) 0%, transparent 70%) !important;
-                background-size: 40px 40px, 40px 40px, 100% 100% !important;
+                    radial-gradient(circle at 15% 25%, rgba(5, 217, 232, 0.12) 0%, transparent 40%),
+                    radial-gradient(circle at 85% 75%, rgba(255, 0, 127, 0.08) 0%, transparent 40%),
+                    url("data:image/svg+xml,%3Csvg width='180' height='180' viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd' opacity='0.12'%3E%3Cpath d='M30 15c40 35 40 115 0 150M150 15c-40 35-40 115 0 150' stroke='%2305D9E8' stroke-width='2'/%3E%3Cpath d='M150 15c-40 35-40 115 0 150' stroke='%23ff007f' stroke-width='1.5' stroke-dasharray='4 4'/%3E%3Cline x1='60' y1='50' x2='120' y2='50' stroke='%2305D9E8' stroke-width='1.5'/%3E%3Cline x1='45' y1='90' x2='135' y2='90' stroke='%23ff007f' stroke-width='1.5'/%3E%3Cline x1='60' y1='130' x2='120' y2='130' stroke='%2305D9E8' stroke-width='1.5'/%3E%3Ccircle cx='60' cy='50' r='3' fill='%2305D9E8'/%3E%3Ccircle cx='120' cy='50' r='3' fill='%23ff007f'/%3E%3Ccircle cx='45' cy='90' r='3' fill='%23ff007f'/%3E%3Ccircle cx='135' cy='90' r='3' fill='%2305D9E8'/%3E%3Ccircle cx='60' cy='130' r='3' fill='%2305D9E8'/%3E%3Ccircle cx='120' cy='130' r='3' fill='%23ff007f'/%3E%3C/g%3E%3C/svg%3E") !important;
+                background-size: auto, auto, 180px 180px !important;
                 color: #e2e8f0 !important;
                 font-family: 'Inter', sans-serif !important;
             }
 
             /* Custom Terminal Scrollbar */
             ::-webkit-scrollbar { width: 4px; height: 4px; }
-            ::-webkit-scrollbar-track { background: #020408; }
+            ::-webkit-scrollbar-track { background: #010308; }
             ::-webkit-scrollbar-thumb { background: #05D9E8; border-radius: 2px; }
 
             /* Sidebar Lab Control Panel */
             [data-testid="stSidebar"] {
-                background-color: #040812 !important;
+                background-color: #030612 !important;
                 border-right: 1px solid rgba(5, 217, 232, 0.2);
                 box-shadow: inset -10px 0 20px rgba(0,0,0,0.8);
             }
@@ -36,16 +36,16 @@ def load_aesthetic_theme() -> None:
 
             /* Cyberpunk Hero Command Header */
             .hero {
-                background: linear-gradient(135deg, rgba(8, 15, 30, 0.95) 0%, rgba(2, 4, 8, 0.98) 100%);
+                background: linear-gradient(135deg, rgba(6, 12, 25, 0.95) 0%, rgba(1, 3, 8, 0.98) 100%);
                 border: 1px solid rgba(5, 217, 232, 0.4);
                 border-radius: 4px;
                 padding: 2.5rem;
                 margin-bottom: 2rem;
                 position: relative;
-                box-shadow: 0 0 30px rgba(5, 217, 232, 0.1), inset 0 0 15px rgba(5, 217, 232, 0.05);
+                box-shadow: 0 0 30px rgba(5, 217, 232, 0.12), inset 0 0 15px rgba(5, 217, 232, 0.05);
             }
             .hero::before {
-                content: "● LIVE TELEMETRY // GENOME_ID: ACTIVE";
+                content: "● LIVE TELEMETRY // PROTEIN_DB: ACTIVE";
                 position: absolute;
                 top: 12px;
                 right: 15px;
@@ -87,7 +87,7 @@ def load_aesthetic_theme() -> None:
 
             /* High-Tech Telemetry Cards */
             .metric-card {
-                background: rgba(6, 12, 24, 0.9);
+                background: rgba(4, 9, 20, 0.92);
                 border: 1px solid #1e293b;
                 border-left: 3px solid #05D9E8;
                 border-radius: 2px;
@@ -159,7 +159,7 @@ def load_aesthetic_theme() -> None:
 
             /* Sci-Fi Action Buttons */
             .stButton button {
-                background: #020408 !important;
+                background: #010308 !important;
                 color: #05D9E8 !important;
                 font-family: 'Orbitron', sans-serif !important;
                 font-size: 0.8rem !important;
@@ -173,7 +173,7 @@ def load_aesthetic_theme() -> None:
             }
             .stButton button:hover {
                 background: #05D9E8 !important;
-                color: #020408 !important;
+                color: #010308 !important;
                 box-shadow: 0 0 15px rgba(5, 217, 232, 0.6);
             }
         </style>

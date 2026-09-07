@@ -20,7 +20,6 @@ def calculate_ramachandran_angles(pdb_text: str):
 
     for model in structure:
         for chain in model:
-            polypeptides = []
             from Bio.PDB.PPBuilder import PPBuilder
             ppb = PPBuilder()
             for pp in ppb.build_peptides(chain):
@@ -66,7 +65,7 @@ def secondary_structure_with_fallback(protein: dict, pdb_text: str) -> dict[int,
     except Exception:
         # Fallback heuristic based on sequence patterns if coordinate parsing fails
         for i, aa in enumerate(sequence, start=1):
-            if aa in "EALQK":  n
+            if aa in "EALQK":
                 sec_struct[i] = "H"
             elif aa in "VIFYW":  
                 sec_struct[i] = "E"

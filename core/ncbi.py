@@ -5,11 +5,13 @@ import urllib.parse
 import json
 
 BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+# Providing tool and email prevents rate limits and HTTP 429 errors from NCBI
+TOOL_PARAMS = "&tool=ProteinExplorer&email=user@example.com"
 
 
 def search_ncbi_gene(query: str, db: str = "gene", retmax: int = 5) -> list[dict]:
-    """Searches NCBI databases (e.g., gene, nuccore, protein) and returns matching records."""
-    search_url = f"{BASE_URL}esearch.fcgi?db={db}&term={urllib.parse.quote(query)}&retmax={retmax}&sort=relevant&format=json"
+    """Searches NCBI databases and returns matching records with robust key mapping."""
+    search_url = f"{BASE_URL}esearch.fcgi?db={db}&term={urllib.parse.quote(query)}&retmax={retmax}&sort=relevant&format=json{TOOL_PARAMS}"
     
     try:
         req = urllib.request.Request(search_url, headers={"User-Agent": "ProteinExplorer/1.0"})
@@ -27,9 +29,9 @@ def search_ncbi_gene(query: str, db: str = "gene", retmax: int = 5) -> list[dict
 
 
 def fetch_ncbi_summaries(db: str, id_list: list[str]) -> list[dict]:
-    """Fetches summary details for a list of NCBI UIDs."""
+    """Fetches and parses summary details for a list of NCBI UIDs safely."""
     ids_str = ",".join(id_list)
-    summary_url = f"{BASE_URL}esummary.fcgi?db={db}&id={ids_str}&format=json"
+    summary_url = f"{BASE_URL}esummary.fcgi?db={db}&id={ids_str}&format=json{TOOL_PARAMS}"
     
     try:
         req = urllib.request.Request(summary_url, headers={"User-Agent": "ProteinExplorer/1.0"})
@@ -41,12 +43,35 @@ def fetch_ncbi_summaries(db: str, id_list: list[str]) -> list[dict]:
             for uid in id_list:
                 if uid in result:
                     item = result[uid]
+                    
+                    # Extract fields safely across different NCBI schema versions
+                    gene_id = item.get("uid", item.get("geneid", uid))
+                    symbol = item.get("name", item.get("symbol", item.get("title", "Unknown")))
+                    description = item.get("description", item.get("summary", item.get("caption", "")))
+                    
+                    # Handle organism block securely
+                    org_info = item.get("organism", {})
+                    if isinstance(org_info, dict):
+                        organism = org_info.get("scientificname", org_info.get("name", "Unknown"))
+                    else:
+                        organism = str(org_info)
+
+                    # Handle chromosome mapping
+                    loc = item.get("chromosome", item.get("genomicinfo", ""))
+                    if isinstance(loc, list) and len(loc) > 0:
+                        chromosome = loc[0].get("chrsort", loc[0].get("chrid", ""))
+                    else:
+                        chromosome = str(loc)
+
                     summaries.append({
-                        "uid": uid,
-                        "name": item.get("name", item.get("title", "Unknown")),
-                        "description": item.get("description", item.get("caption", "")),
-                        "organism": item.get("organism", {}).get("scientificname", "Unknown"),
-                        "chromosome": item.get("chromosome", ""),
+                        "gene_id": str(gene_id),
+                        "uid": str(uid),
+                        "symbol": str(symbol),
+                        "name": str(symbol),
+                        "description": str(description),
+                        "organism": str(organism),
+                        "chromosome": str(chromosome),
+                        "summary": str(item.get("summary", "")),
                     })
             return summaries
     except Exception as e:
@@ -66,7 +91,7 @@ def fetch_cds_nucleotide_sequence(protein: dict) -> dict:
     if not gene_symbol:
         return {"sequence": "", "length": 0, "gc_content": 0.0, "accession": "", "description": ""}
 
-    search_url = f"{BASE_URL}esearch.fcgi?db=nuccore&term={urllib.parse.quote(gene_symbol + '[Gene] AND homo sapiens[Organism] AND biomol_mrna[PROP]')}&retmax=1&format=json"
+    search_url = f"{BASE_URL}esearch.fcgi?db=nuccore&term={urllib.parse.quote(gene_symbol + '[Gene] AND homo sapiens[Organism] AND biomol_mrna[PROP]')}&retmax=1&format=json{TOOL_PARAMS}"
     
     try:
         req = urllib.request.Request(search_url, headers={"User-Agent": "ProteinExplorer/1.0"})
@@ -79,7 +104,7 @@ def fetch_cds_nucleotide_sequence(protein: dict) -> dict:
                 
             nucl_id = id_list[0]
             
-            fetch_url = f"{BASE_URL}efetch.fcgi?db=nuccore&id={nucl_id}&rettype=fasta&retmode=text"
+            fetch_url = f"{BASE_URL}efetch.fcgi?db=nuccore&id={nucl_id}&rettype=fasta&retmode=text{TOOL_PARAMS}"
             req_fasta = urllib.request.Request(fetch_url, headers={"User-Agent": "ProteinExplorer/1.0"})
             with urllib.request.urlopen(req_fasta) as fasta_resp:
                 fasta_text = fasta_resp.read().decode()

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import plotly.graph_objects as go
-import numpy as np
 
 
 def plddt_figure(plddt_scores: list[float]) -> go.Figure:
@@ -33,27 +32,25 @@ def ramachandran_figure(
     residue_numbers: list[int],
     sequence: str | None = None,
 ) -> go.Figure:
-    """Generates an enhanced Ramachandran plot with region contours, Gly/Pro differentiation, and outlier detection."""
+    """Generates a high-end, publication-quality aesthetic Ramachandran plot with smooth quadrant styling."""
     fig = go.Figure()
 
-    # Add background shaded zones for core favored regions (approximate general Ramachandran favored areas)
-    # Alpha helix region (~-60, -43) and Beta sheet region (~-135, +135)
+    # Aesthetic background region contours (Favored Alpha-helix & Beta-sheet zones)
     fig.add_shape(
         type="rect",
-        x0=-100, y0=-80, x1=-40, y1=-10,
-        fillcolor="rgba(5, 217, 232, 0.08)",
-        line=dict(width=0),
+        x0=-140, y0=-70, x1=-30, y1=-10,
+        fillcolor="rgba(5, 217, 232, 0.12)",
+        line=dict(color="rgba(5, 217, 232, 0.3)", width=1, dash="dot"),
         layer="below",
     )
     fig.add_shape(
         type="rect",
-        x0=-160, y0=90, x1=-100, y1=160,
-        fillcolor="rgba(255, 42, 109, 0.08)",
-        line=dict(width=0),
+        x0=-160, y0=70, x1=-80, y1=160,
+        fillcolor="rgba(255, 42, 109, 0.10)",
+        line=dict(color="rgba(255, 42, 109, 0.3)", width=1, dash="dot"),
         layer="below",
     )
 
-    # Categorize residues if sequence is provided
     res_list = list(sequence) if sequence and len(sequence) == len(phi) else ["X"] * len(phi)
     
     reg_phi, reg_psi, reg_text = [], [], []
@@ -62,28 +59,26 @@ def ramachandran_figure(
     out_phi, out_psi, out_text = [], [], []
 
     for p, ps, rn, aa in zip(phi, psi, residue_numbers, res_list):
-        # Simple heuristic for disallowed / outlier space (e.g., positive phi outside specific loops)
         is_outlier = (p > 0 and not (-90 < ps < 90)) or (abs(p) < 20 and abs(ps) < 20)
         
         label = f"{aa}{rn}"
         if is_outlier:
             out_phi.append(p)
             out_psi.append(ps)
-            out_text.append(f"<b>OUTLIER</b><br>{label}<br>φ: {p:.1f}°<br>ψ: {ps:.1f}°")
+            out_text.append(f"<b>⚠️ OUTLIER</b><br>Residue: {label}<br>φ: {p:.1f}° | ψ: {ps:.1f}°")
         elif aa == "G":
             gly_phi.append(p)
             gly_psi.append(ps)
-            gly_text.append(f"Glycine<br>{label}<br>φ: {p:.1f}°<br>ψ: {ps:.1f}°")
+            gly_text.append(f"<b>Glycine (G)</b><br>Residue: {label}<br>φ: {p:.1f}° | ψ: {ps:.1f}°")
         elif aa == "P":
             pro_phi.append(p)
             pro_psi.append(ps)
-            pro_text.append(f"Proline<br>{label}<br>φ: {p:.1f}°<br>ψ: {ps:.1f}°")
+            pro_text.append(f"<b>Proline (P)</b><br>Residue: {label}<br>φ: {p:.1f}° | ψ: {ps:.1f}°")
         else:
             reg_phi.append(p)
             reg_psi.append(ps)
-            reg_text.append(f"Residue<br>{label}<br>φ: {p:.1f}°<br>ψ: {ps:.1f}°")
+            reg_text.append(f"<b>Residue</b><br>Name: {label}<br>φ: {p:.1f}° | ψ: {ps:.1f}°")
 
-    # Regular residues
     if reg_phi:
         fig.add_trace(
             go.Scatter(
@@ -91,13 +86,12 @@ def ramachandran_figure(
                 y=reg_psi,
                 mode="markers",
                 name="General Residues",
-                marker=dict(size=6, color="#05D9E8", opacity=0.7),
+                marker=dict(size=7, color="#05D9E8", opacity=0.85, line=dict(width=0.5, color="#ffffff")),
                 text=reg_text,
                 hoverinfo="text",
             )
         )
 
-    # Glycine
     if gly_phi:
         fig.add_trace(
             go.Scatter(
@@ -105,13 +99,12 @@ def ramachandran_figure(
                 y=gly_psi,
                 mode="markers",
                 name="Glycine (G)",
-                marker=dict(size=7, color="#FFB703", symbol="triangle-up"),
+                marker=dict(size=8, color="#FFB703", symbol="triangle-up", line=dict(width=0.5, color="#ffffff")),
                 text=gly_text,
                 hoverinfo="text",
             )
         )
 
-    # Proline
     if pro_phi:
         fig.add_trace(
             go.Scatter(
@@ -119,36 +112,63 @@ def ramachandran_figure(
                 y=pro_psi,
                 mode="markers",
                 name="Proline (P)",
-                marker=dict(size=7, color="#2ec4b6", symbol="square"),
+                marker=dict(size=8, color="#2ec4b6", symbol="square", line=dict(width=0.5, color="#ffffff")),
                 text=pro_text,
                 hoverinfo="text",
             )
         )
 
-    # Outliers
     if out_phi:
         fig.add_trace(
             go.Scatter(
                 x=out_phi,
                 y=out_psi,
                 mode="markers",
-                name="Outliers / Disallowed",
-                marker=dict(size=9, color="#FF2A6D", symbol="x"),
+                name="Outliers",
+                marker=dict(size=10, color="#FF2A6D", symbol="x", line=dict(width=1.5, color="#ffffff")),
                 text=out_text,
                 hoverinfo="text",
             )
         )
 
     fig.update_layout(
-        title="Ramachandran Plot (φ / ψ Angles)",
-        xaxis_title="Dihedral Angle φ (degrees)",
-        yaxis_title="Dihedral Angle ψ (degrees)",
-        xaxis=dict(range=[-180, 180], zeroline=True, zerolinecolor="#333"),
-        yaxis=dict(range=[-180, 180], zeroline=True, zerolinecolor="#333"),
+        title=dict(text="<b>Ramachandran Conformational Space</b>", font=dict(size=16, color="#f0f6fc")),
+        xaxis_title=dict(text="Dihedral Angle φ (degrees)", font=dict(color="#8b949e")),
+        yaxis_title=dict(text="Dihedral Angle ψ (degrees)", font=dict(color="#8b949e")),
+        xaxis=dict(
+            range=[-185, 185],
+            zeroline=True,
+            zerolinecolor="rgba(255, 255, 255, 0.15)",
+            gridcolor="rgba(255, 255, 255, 0.05)",
+            tickfont=dict(color="#8b949e"),
+        ),
+        yaxis=dict(
+            range=[-185, 185],
+            zeroline=True,
+            zerolinecolor="rgba(255, 255, 255, 0.15)",
+            gridcolor="rgba(255, 255, 255, 0.05)",
+            tickfont=dict(color="#8b949e"),
+        ),
         template="plotly_dark",
         paper_bgcolor="#0b0f19",
         plot_bgcolor="#0b0f19",
-        margin=dict(l=50, r=40, t=50, b=40),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(l=60, r=40, t=60, b=50),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.04,
+            xanchor="right",
+            x=1,
+            bgcolor="rgba(11, 15, 25, 0.6)",
+            bordercolor="rgba(255, 255, 255, 0.1)",
+            borderwidth=1,
+            font=dict(color="#c9d1d9"),
+        ),
+        hoverlabel=dict(
+            bgcolor="#161b22",
+            font_color="#f0f6fc",
+            font_family="monospace",
+            bordercolor="rgba(255, 255, 255, 0.2)",
+        ),
     )
     return fig

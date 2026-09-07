@@ -181,27 +181,14 @@ import textwrap
 # ============================================================
 
 def _render_header(protein: dict, properties: dict, plddt) -> None:
-    st.markdown(
-        textwrap.dedent(
-            f"""
-            <div class="hero">
-                <div class="kicker">
-                    Protein workspace · {esc(protein['accession'])}
-                </div>
-
-                <div class="hero-title">
-                    {esc(protein['name'])}
-                </div>
-
-                <div class="hero-copy">
-                    {esc(protein['organism'])} · Gene: {esc(protein['gene'])}
-                    · UniProt: {esc(protein['accession'])}
-                </div>
-            </div>
-            """
-        ),
-        unsafe_allow_html=True,
+    hero_html = (
+        f'<div class="hero">'
+        f'<div class="kicker">Protein workspace · {esc(protein["accession"])}</div>'
+        f'<div class="hero-title">{esc(protein["name"])}</div>'
+        f'<div class="hero-copy">{esc(protein["organism"])} · Gene: {esc(protein["gene"])} · UniProt: {esc(protein["accession"])}</div>'
+        f'</div>'
     )
+    st.markdown(hero_html, unsafe_allow_html=True)
 
     metrics = [
         (
@@ -240,18 +227,14 @@ def _render_header(protein: dict, properties: dict, plddt) -> None:
 
     for col, (label, value, sub) in zip(cols, metrics):
         with col:
-            st.markdown(
-                textwrap.dedent(
-                    f"""
-                    <div class="metric-card">
-                        <div class="metric-label">{esc(label)}</div>
-                        <div class="metric-value">{esc(value)}</div>
-                        <div class="metric-sub">{esc(sub)}</div>
-                    </div>
-                    """
-                ),
-                unsafe_allow_html=True,
+            metric_html = (
+                f'<div class="metric-card">'
+                f'<div class="metric-label">{esc(label)}</div>'
+                f'<div class="metric-value">{esc(value)}</div>'
+                f'<div class="metric-sub">{esc(sub)}</div>'
+                f'</div>'
             )
+            st.markdown(metric_html, unsafe_allow_html=True)
 
     st.markdown(
         '<div style="margin-top:.75rem">'

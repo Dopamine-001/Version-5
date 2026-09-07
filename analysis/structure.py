@@ -1,9 +1,9 @@
-
 from __future__ import annotations
 
 import math
 import numpy as np
 from Bio.PDB import PDBParser
+from Bio.PDB.Polypeptide import PPBuilder
 
 def calculate_ramachandran_angles(pdb_text: str):
     """Calculates Phi and Psi torsion angles from PDB text coordinates."""
@@ -20,7 +20,6 @@ def calculate_ramachandran_angles(pdb_text: str):
 
     for model in structure:
         for chain in model:
-            from Bio.PDB.PPBuilder import PPBuilder
             ppb = PPBuilder()
             for pp in ppb.build_peptides(chain):
                 phi_psi = pp.get_phi_psi()

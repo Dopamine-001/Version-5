@@ -91,6 +91,7 @@ def show_protein(protein_query: str) -> None:
             "Domains & Sites",
             "PTMs",
             "Ramachandran",
+            "Contact Map",
             "BLAST Similarity",
             "Disorder (DisProt)",
             "Protein Atlas (HPA)",
@@ -146,16 +147,25 @@ def show_protein(protein_query: str) -> None:
     with tabs[8]:
         _render_ramachandran_tab(pdb_text)
 
-    with tabs[9]:
+    with tabs[9]:  # Ensure this index matches the position of "Contact Map" in your tabs list
+    st.markdown('<div class="section-title">Structural Contact Map (Cα Distance Matrix)</div>', unsafe_allow_html=True)
+    st.caption("Visualizes physical 3D distances between amino acid pairs to highlight tertiary folding domains and interaction interfaces.")
+    if pdb_text:
+        from charts.structure_charts import contact_map_figure
+        st.plotly_chart(contact_map_figure(pdb_text), use_container_width=True)
+    else:
+        st.info("No structure available for contact map generation.")
+    
+    with tabs[10]:
         _render_blast_tab(protein, sequence)
 
-    with tabs[10]:
+    with tabs[11]:
         _render_disorder_tab(protein)
 
-    with tabs[11]:
+    with tabs[12]:
         _render_hpa_tab(protein)
 
-    with tabs[12]:
+    with tabs[13]:
         _render_comparison_tab(
             protein,
             sequence,

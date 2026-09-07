@@ -943,10 +943,19 @@ def _render_hpa_tab(protein: dict) -> None:
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("### Tissue Expression Profile")
-        st.json(hpa_info.get("Tissues", "Summary unavailable."))
+        tissues = hpa_info.get("Tissues", "Summary unavailable.")
+        if isinstance(tissues, (dict, list)):
+            st.json(tissues)
+        else:
+            st.write(tissues)
+
     with c2:
         st.markdown("### Pathology & Disease Associations")
-        st.json(hpa_info.get("Pathology", "Pathology data unavailable."))
+        pathology = hpa_info.get("Pathology", "Pathology data unavailable.")
+        if isinstance(pathology, (dict, list)):
+            st.json(pathology)
+        else:
+            st.write(pathology)
 
 
 # ============================================================

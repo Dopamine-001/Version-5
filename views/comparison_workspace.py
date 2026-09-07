@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
+import pathlib
 
-# Force the parent root directory into sys.path first so all top-level packages resolve
-ROOT_DIR = Path(__file__).resolve().parent.parent
+# Ensure root directory is in path so top-level packages resolve reliably
+ROOT_DIR = pathlib.Path(__file__).parent.parent.resolve()
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 

@@ -17,7 +17,7 @@ import streamlit as st
 
 from config import APP_NAME
 from core.ui_theme import load_aesthetic_theme
-from core.database import init_db, log_search 
+from core.database import init_db, log_search  
 from styles import inject_css
 from views.landing import render_landing
 from views.sidebar import render_sidebar
@@ -29,7 +29,15 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Initialize the SQLite database table on app startup
+init_db()
+
 load_aesthetic_theme()
 inject_css()
+
+# If you capture search queries in session state or user input, log them here:
+if "protein_query" in st.session_state and st.session_state["protein_query"]:
+    log_search(st.session_state["protein_query"])
+
 render_sidebar()
 render_landing()

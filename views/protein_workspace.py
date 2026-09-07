@@ -645,29 +645,9 @@ def _render_primary_structure_tab(
 # 3D STRUCTURE TAB
 # ============================================================
 
-def _render_3d_structure_tab(
-    protein: dict,
-    pdb_text,
-    af_meta: dict,
-    plddt,
-    sequence: str,
-) -> None:
-    if not pdb_text:
-        st.warning("No AlphaFold prediction was returned for this accession.")
-        return
-
-    acc = protein["accession"]
-
-    view_mode = st.radio(
-        "Structure view",
-        ["Main 3D structure", "Secondary structure"],
-        horizontal=True,
-        key=f"view_mode_{acc}",
-    )
-
-    if view_mode == "Secondary structure":
+if view_mode == "Secondary structure":
         st.markdown(
-            '<div class="section-title">Secondary structure map</div>',
+            '<div class="section-title">Secondary structure map & 3D view</div>',
             unsafe_allow_html=True,
         )
 
@@ -679,9 +659,20 @@ def _render_3d_structure_tab(
         col_t.markdown("🟡 **Turns** &nbsp;`#FFB703`", unsafe_allow_html=True)
         col_l.markdown("⚪ **Coils / loops** &nbsp;`#8FA3BF`", unsafe_allow_html=True)
 
-        opt1, opt2 = st.columns(2)
-        ss_spin = opt1.toggle("Spin structure", value=False, key=f"ss_spin_{acc}")
-        show_coils = opt2.toggle("Show coils", value=True, key=f"ss_coils_{acc}")
+        opt1, opt2, opt3, opt4 = st.columns(4)
+        ss_rep = opt1.selectbox("Representation", ["Cartoon", "Ribbon", "Trace", "Tube"], key=f"ss_rep_{acc}")
+        ss_cam = opt2.selectbox("Orientation", ["Default", "Front", "Side", "Top"], key=f"ss_cam_{acc}")
+        ss_spin = opt3.toggle("Spin structure", value=False, key=f"ss_spin_{acc}")
+        show_coils = opt4.toggle("Show coils", value=True, key=f"ss_coils_{acc}")
+
+        ss_highlight = st.number_input(
+            "Highlight residue position (optional)",
+            min_value=1,
+            max_value=len(sequence),
+            value=None,
+            step=1,
+            key=f"ss_highlight_pos_{acc}",
+        )
 
         components.html(
             render_secondary_structure_3d(
@@ -690,83 +681,14 @@ def _render_3d_structure_tab(
                 height=560,
                 spin=ss_spin,
                 show_coils=show_coils,
+                representation=ss_rep,
+                camera=ss_cam,
+                highlight_position=int(ss_highlight) if ss_highlight else None,
             ),
             height=580,
             scrolling=False,
         )
         return
-
-    st.markdown(
-        '<div class="section-title">Interactive AlphaFold structure</div>',
-        unsafe_allow_html=True,
-    )
-
-    c1, c2, c3, c4 = st.columns(4)
-
-    with c1:
-        representation = st.selectbox(
-            "Representation",
-            ["Stick", "Sphere", "Cartoon", "Ribbon", "Line", "Surface"],
-            index=0,
-            key=f"repr_v3_{protein['accession']}",
-        )
-
-    with c2:
-        color_style = st.selectbox(
-            "Color by",
-            ["Spectrum", "Chain", "Secondary structure", "Uniform"],
-            key=f"color_{protein['accession']}",
-        )
-
-    with c3:
-        highlight_mode = st.selectbox(
-            "Highlight style",
-            ["Stick", "Sphere"],
-            key=f"highlight_{protein['accession']}",
-        )
-
-    with c4:
-        spin = st.toggle(
-            "Spin structure",
-            value=False,
-            key=f"spin_{protein['accession']}",
-        )
-
-    camera = st.selectbox(
-        "Orientation",
-        ["Default", "Front", "Side", "Top"],
-        key=f"camera_v3_{protein['accession']}",
-    )
-
-    mutation_pos = st.number_input(
-        "Highlight residue position (optional)",
-        min_value=1,
-        max_value=len(sequence),
-        value=None,
-        step=1,
-        key=f"highlight_pos_{protein['accession']}",
-    )
-
-    html = render_structure(
-        pdb_text,
-        representation=representation,
-        color_style=color_style,
-        spin=spin,
-        highlight_position=(
-            int(mutation_pos)
-            if mutation_pos
-            else None
-        ),
-        highlight_mode=highlight_mode,
-        camera=camera,
-    )
-
-    components.html(
-        html,
-        height=590,
-        scrolling=False,
-    )
-
 
 # ============================================================
 # HYDROPHOBICITY TAB

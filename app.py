@@ -6,12 +6,12 @@ A professional Streamlit application for protein study and exploration.
 from __future__ import annotations
 
 import sys
-import pathlib
+from pathlib import Path
 
-# Ensure root directory is in path so local modules like config import reliably
-ROOT_DIR = pathlib.Path(__file__).parent.resolve()
+# Force the repository root into sys.path so submodules can find top-level packages
+ROOT_DIR = Path(__file__).resolve().parent
 if str(ROOT_DIR) not in sys.path:
-    sys.path.append(str(ROOT_DIR))
+    sys.path.insert(0, str(ROOT_DIR))
 
 import streamlit as st
 
@@ -29,7 +29,6 @@ st.set_page_config(
 )
 
 load_aesthetic_theme()
-
 inject_css()
 render_sidebar()
 render_landing()

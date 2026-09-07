@@ -812,16 +812,16 @@ def _render_mutations_tab(
         unsafe_allow_html=True,
     )
 
-    known = variants_dataframe(
-        protein["variants"]
-    )
-
-    if not known.empty:
+    variants_list = protein.get("variants", [])
+    if variants_list:
+        df = pd.DataFrame(variants_list)
         st.dataframe(
-            known,
+            df,
             use_container_width=True,
             hide_index=True,
         )
+    else:
+        st.info("No variation or mutagenesis records found for this entry.")
 
 
 # ============================================================
@@ -836,22 +836,23 @@ def _render_domains_sites_tab(
         unsafe_allow_html=True,
     )
 
-    domain_df = feature_dataframe(
-        protein.get("domains", [])
-    )
-    site_df = feature_dataframe(
-        protein.get("sites", [])
-    )
+    domains_list = protein.get("domains", [])
+    sites_list = protein.get("sites", [])
 
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("**Domains & regions**")
-        if not domain_df.empty:
-            st.dataframe(domain_df, use_container_width=True, hide_index=True)
+        if domains_list:
+            st.dataframe(pd.DataFrame(domains_list), use_container_width=True, hide_index=True)
+        else:
+            st.caption("No domain records available.")
+            
     with c2:
         st.markdown("**Functional sites**")
-        if not site_df.empty:
-            st.dataframe(site_df, use_container_width=True, hide_index=True)
+        if sites_list:
+            st.dataframe(pd.DataFrame(sites_list), use_container_width=True, hide_index=True)
+        else:
+            st.caption("No site records available.")
 
 
 # ============================================================
@@ -863,9 +864,11 @@ def _render_ptms_tab(protein: dict) -> None:
         '<div class="section-title">Post-translational modifications</div>',
         unsafe_allow_html=True,
     )
-    ptm_df = feature_dataframe(protein.get("ptms", []))
-    if not ptm_df.empty:
-        st.dataframe(ptm_df, use_container_width=True, hide_index=True)
+    ptms_list = protein.get("ptms", [])
+    if ptms_list:
+        st.dataframe(pd.DataFrame(ptms_list), use_container_width=True, hide_index=True)
+    else:
+        st.info("No post-translational modification records found for this entry.")
 
 
 # ============================================================

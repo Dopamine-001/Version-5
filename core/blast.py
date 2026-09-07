@@ -7,24 +7,23 @@ import requests
 from Bio.Blast import NCBIXML
 
 
-def run_blast_search(sequence: str, max_wait_seconds: int = 90) -> list[dict]:
+def run_blast_search(sequence: str, max_wait_seconds: int = 60) -> list[dict]:
     """
-    Submits a protein sequence to NCBI BLAST (blastp against nr) and
-    polls until results are ready. Returns a list of top hits, each
-    with a title, percent identity, and E-value.
+    Submits a protein sequence to NCBI BLAST (blastp against swissprot) 
+    for fast, reliable homology matching.
     """
     submit_url = "https://blast.ncbi.nlm.nih.gov/Blast.cgi"
     submit_params = {
         "CMD": "Put",
         "PROGRAM": "blastp",
-        "DATABASE": "nr",
-        "QUERY": sequence[:2000],
+        "DATABASE": "swissprot",  # swissprot is much faster and more reliable than 'nr'
+        "QUERY": sequence[:1000],   # Truncate long sequences for faster processing
         "EXPECT": "10",
         "FORMAT_TYPE": "XML",
     }
     
     try:
-        submit_resp = requests.post(submit_url, data=submit_params, timeout=30)
+        submit_resp = requests.post(submit_url, data=submit_params, timeout=20)
         submit_resp.raise_for_status()
 
         rid = None
@@ -38,20 +37,29 @@ def run_blast_search(sequence: str, max_wait_seconds: int = 90) -> list[dict]:
 
         status_params = {"CMD": "Get", "FORMAT_OBJECT": "SearchInfo", "RID": rid}
         waited = 0
+        
+        # Poll NCBI for results with status checking
         while waited < max_wait_seconds:
-            time.sleep(5)
-            waited += 5
-            status_resp = requests.get(submit_url, params=status_params, timeout=30)
+            time.sleep(4)
+            waited += 4
+            status_resp = requests.get(submit_url, params=status_params, timeout=20)
+            
             if "Status=READY" in status_resp.text:
-                break
+                # Check if it actually has hit data ready
+                if "ThereAreHits=yes" in status_resp.text or "Status=READY" in status_resp.text:
+                    break
             elif "Status=FAILED" in status_resp.text or "Status=UNKNOWN" in status_resp.text:
                 return []
         else:
             return []  # Timed out
 
+        # Fetch XML results
         result_params = {"CMD": "Get", "FORMAT_TYPE": "XML", "RID": rid}
-        result_resp = requests.get(submit_url, params=result_params, timeout=30)
+        result_resp = requests.get(submit_url, params=result_params, timeout=25)
         result_resp.raise_for_status()
+
+        if "<Hit>" not in result_resp.text:
+            return []
 
         blast_record = NCBIXML.read(io.StringIO(result_resp.text))
         

@@ -645,7 +645,27 @@ def _render_primary_structure_tab(
 # 3D STRUCTURE TAB
 # ============================================================
 
-if view_mode == "Secondary structure":
+def _render_3d_structure_tab(
+    protein: dict,
+    pdb_text,
+    af_meta: dict,
+    plddt,
+    sequence: str,
+) -> None:
+    if not pdb_text:
+        st.warning("No AlphaFold prediction was returned for this accession.")
+        return
+
+    acc = protein["accession"]
+
+    view_mode = st.radio(
+        "Structure view",
+        ["Main 3D structure", "Secondary structure"],
+        horizontal=True,
+        key=f"view_mode_{acc}",
+    )
+
+    if view_mode == "Secondary structure":
         st.markdown(
             '<div class="section-title">Secondary structure map & 3D view</div>',
             unsafe_allow_html=True,
@@ -689,6 +709,78 @@ if view_mode == "Secondary structure":
             scrolling=False,
         )
         return
+
+    st.markdown(
+        '<div class="section-title">Interactive AlphaFold structure</div>',
+        unsafe_allow_html=True,
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    with c1:
+        representation = st.selectbox(
+            "Representation",
+            ["Stick", "Sphere", "Cartoon", "Ribbon", "Line", "Surface"],
+            index=2,
+            key=f"repr_v3_{protein['accession']}",
+        )
+
+    with c2:
+        color_style = st.selectbox(
+            "Color by",
+            ["Spectrum", "Chain", "Secondary structure", "Uniform"],
+            key=f"color_{protein['accession']}",
+        )
+
+    with c3:
+        highlight_mode = st.selectbox(
+            "Highlight style",
+            ["Stick", "Sphere"],
+            key=f"highlight_{protein['accession']}",
+        )
+
+    with c4:
+        spin = st.toggle(
+            "Spin structure",
+            value=False,
+            key=f"spin_{protein['accession']}",
+        )
+
+    camera = st.selectbox(
+        "Orientation",
+        ["Default", "Front", "Side", "Top"],
+        key=f"camera_v3_{protein['accession']}",
+    )
+
+    mutation_pos = st.number_input(
+        "Highlight residue position (optional)",
+        min_value=1,
+        max_value=len(sequence),
+        value=None,
+        step=1,
+        key=f"highlight_pos_{protein['accession']}",
+    )
+
+    html = render_structure(
+        pdb_text,
+        representation=representation,
+        color_style=color_style,
+        spin=spin,
+        highlight_position=(
+            int(mutation_pos)
+            if mutation_pos
+            else None
+        ),
+        highlight_mode=highlight_mode,
+        camera=camera,
+    )
+
+    components.html(
+        html,
+        height=590,
+        scrolling=False,
+    )
+
 
 # ============================================================
 # HYDROPHOBICITY TAB
@@ -735,8 +827,6 @@ def _render_mutations_tab(
     )
 
     variants_list = protein.get("variants", [])
-    
-    # Fallback default variations if none are parsed directly
     if not variants_list:
         variants_list = [
             {"Type": "VARIANT", "Start": "175", "End": "175", "Description": "Arg->His (Pathogenic hotspot variant)"},
@@ -768,7 +858,6 @@ def _render_domains_sites_tab(
     domains_list = protein.get("domains", [])
     sites_list = protein.get("sites", [])
 
-    # Fallbacks if lists are empty
     if not domains_list:
         domains_list = [
             {"Type": "DOMAIN", "Start": "1", "End": "94", "Description": "Transactivation domain (TAD 1 & 2)"},
@@ -779,7 +868,7 @@ def _render_domains_sites_tab(
     if not sites_list:
         sites_list = [
             {"Type": "BINDING", "Start": "120", "End": "280", "Description": "DNA binding residues (Core interactions)"},
-            {"Type": "SITE", "Start": "100", "End": "100", "Description": "Zinc coordination site (Cys-176, Cys-135, etc.)"},
+            {"Type": "SITE", "Start": "100", "End": "100", "Description": "Zinc coordination site"},
             {"Type": "ACT_SITE", "Start": "277", "End": "277", "Description": "Critical residue for sequence-specific DNA binding"}
         ]
 
@@ -813,6 +902,7 @@ def _render_ptms_tab(protein: dict) -> None:
         ]
 
     st.dataframe(pd.DataFrame(ptms_list), use_container_width=True, hide_index=True)
+
 
 # ============================================================
 # RAMACHANDRAN TAB
@@ -907,6 +997,7 @@ def _render_hpa_tab(protein: dict) -> None:
     with c2:
         st.markdown("### ⚠️ Pathology & Disease Associations")
         st.warning(hpa_info.get("Pathology", "Data unavailable."))
+
 
 # ============================================================
 # COMPARISON TAB

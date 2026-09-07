@@ -1,30 +1,17 @@
 """
 Protein Explorer
-================
 A professional Streamlit application for protein study and exploration.
-
-Data sources:
-- UniProt REST API: protein identity, sequence, variants, domains, sites, PTMs
-- AlphaFold Protein Structure Database: predicted 3D structure and pLDDT
-
-Run locally:
-    python -m streamlit run app.py
-
-For Streamlit Community Cloud:
-
-Project layout (see also this folder's README.md):
-    config.py               constants (URLs, amino-acid tables)
-    styles.py               theme CSS
-    core/                   external data access (UniProt, AlphaFold) + shared helpers
-    analysis/               pure computation (sequence, variants, structure, comparison)
-    charts/                 Plotly figure builders
-    viewer/                 py3Dmol structure rendering
-    views/                  Streamlit page/tab rendering (this is the only layer
-                            that should feel "big" — everything below it is
-                            small, focused, and independently testable)
 """
 
 from __future__ import annotations
+
+import sys
+import pathlib
+
+# Ensure root directory is in path so local modules like config import reliably
+ROOT_DIR = pathlib.Path(__file__).parent.resolve()
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
 
 import streamlit as st
 

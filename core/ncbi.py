@@ -83,23 +83,27 @@ def get_ncbi_gene_info(gene_symbol: str) -> dict:
 
 
 def fetch_cds_nucleotide_sequence(protein: dict) -> dict:
-    """Fetches a linked CDS nucleotide sequence using dynamic organism and multi-tier fallback search."""
+    """Fetches a linked CDS nucleotide sequence with multi-tier fallback including UniProt accession and protein names."""
     gene_symbol = protein.get("gene", "").split(",")[0].split()[0].strip()
     organism = protein.get("organism", "Homo sapiens").split("(")[0].strip()
+    accession = protein.get("accession", "")
+    protein_name = protein.get("name", "").split(",")[0].strip()
     
     if not gene_symbol:
-        gene_symbol = protein.get("name", "").split()[0].strip()
+        gene_symbol = protein_name.split()[0] if protein_name else ""
 
-    if not gene_symbol:
-        return {"sequence": "", "length": 0, "gc_content": 0.0, "accession": "", "description": ""}
-
-    # Tiered search queries from most specific to broader fallback queries
-    queries = [
-        f"{gene_symbol}[Gene] AND {organism}[Organism] AND mRNA[Filter]",
-        f"{gene_symbol}[Gene] AND {organism}[Organism]",
-        f"{gene_symbol} AND {organism}",
-        f"{gene_symbol}[Gene]"
-    ]
+    # Build comprehensive search queries including gene symbol, protein name, and UniProt accession
+    queries = []
+    if gene_symbol:
+        queries.extend([
+            f"{gene_symbol}[Gene] AND {organism}[Organism] AND mRNA[Filter]",
+            f"{gene_symbol}[Gene] AND {organism}[Organism]",
+            f"{gene_symbol} AND {organism}"
+        ])
+    if accession:
+        queries.append(f"{accession}[Accession]")
+    if protein_name:
+        queries.append(f"{protein_name} AND {organism}")
 
     nucl_id = None
     for term in queries:

@@ -22,13 +22,12 @@ Project layout (see also this folder's README.md):
     views/                 Streamlit page/tab rendering (this is the only layer
                            that should feel "big" — everything below it is
                            small, focused, and independently testable)
-"""
-
 from __future__ import annotations
 
 import streamlit as st
 
 from config import APP_NAME
+from core.ui_theme import load_aesthetic_theme 
 from styles import inject_css
 from views.landing import render_landing
 from views.sidebar import render_sidebar
@@ -39,6 +38,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+load_aesthetic_theme()
 
 inject_css()
 render_sidebar()

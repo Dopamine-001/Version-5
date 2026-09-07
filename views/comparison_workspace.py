@@ -91,3 +91,7 @@ def show_comparison(
             components.html(html2, height=450, scrolling=False)
         else:
             st.info("No structure available for Protein 2.")
+
+
+# Alias to satisfy any module importing render_comparison instead of show_comparison
+render_comparison = show_comparison

@@ -922,44 +922,32 @@ def _render_disorder_tab(protein: dict) -> None:
 
 def _render_hpa_tab(protein: dict) -> None:
     st.markdown(
-        '<div class="section-title">Human Protein Atlas expression & pathology</div>',
+        '<div class="section-title">Human Protein Atlas & Expression Profiling</div>',
         unsafe_allow_html=True,
     )
     
     gene_symbol = protein.get("gene", "").split(",")[0].strip()
     if not gene_symbol:
-        st.info("No valid gene symbol available to query the Human Protein Atlas.")
+        st.info("No valid gene symbol available.")
         return
         
-    with st.spinner(f"Querying Human Protein Atlas for {gene_symbol}..."):
+    with st.spinner(f"Fetching expression and pathology profiles for {gene_symbol}..."):
         hpa_info = get_hpa_data(gene_symbol)
         
     if not hpa_info:
-        st.warning(f"No expression records found in the Human Protein Atlas for '{gene_symbol}'.")
+        st.warning(f"No records found for '{gene_symbol}'.")
         return
         
-    st.success(f"Successfully retrieved HPA profiling data for {gene_symbol}.")
+    st.success(f"Successfully loaded expression profile for {gene_symbol}.")
     
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("### Tissue Expression Profile")
-        tissues = hpa_info.get("Tissues", {})
-        if isinstance(tissues, dict):
-            st.info(tissues.get("Details", "Data unavailable"))
-            link = tissues.get("External Link", "#")
-            st.markdown(f"🔗 **[View Full Tissue Atlas Entry]({link})**")
-        else:
-            st.write(tissues)
+        st.markdown("### 🧬 Tissue Expression Profile")
+        st.info(hpa_info.get("Tissues", "Data unavailable."))
 
     with c2:
-        st.markdown("### Pathology & Disease Associations")
-        pathology = hpa_info.get("Pathology", {})
-        if isinstance(pathology, dict):
-            st.warning(pathology.get("Details", "Data unavailable"))
-            link = pathology.get("External Link", "#")
-            st.markdown(f"🔗 **[View Pathology Atlas Entry]({link})**")
-        else:
-            st.write(pathology)
+        st.markdown("### ⚠️ Pathology & Disease Associations")
+        st.warning(hpa_info.get("Pathology", "Data unavailable."))
 
 # ============================================================
 # COMPARISON TAB

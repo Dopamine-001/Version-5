@@ -79,7 +79,6 @@ def fetch_cds_nucleotide_sequence(protein: dict) -> dict:
                 
             nucl_id = id_list[0]
             
-            # Fetch fasta sequence
             fetch_url = f"{BASE_URL}efetch.fcgi?db=nuccore&id={nucl_id}&rettype=fasta&retmode=text"
             req_fasta = urllib.request.Request(fetch_url, headers={"User-Agent": "ProteinExplorer/1.0"})
             with urllib.request.urlopen(req_fasta) as fasta_resp:

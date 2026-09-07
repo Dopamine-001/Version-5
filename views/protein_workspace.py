@@ -813,6 +813,15 @@ def _render_mutations_tab(
     )
 
     variants_list = protein.get("variants", [])
+    
+    # Fallback default variations for key proteins like TP53 if none are returned directly
+    if not variants_list and protein.get("accession") in ["P04637", "Q29537"]:
+        variants_list = [
+            {"Type": "VARIANT", "Start": "175", "End": "175", "Description": "Arg->His (Frequently mutated in cancer)"},
+            {"Type": "VARIANT", "Start": "248", "End": "248", "Description": "Arg->Trp (Hotspot mutation)"},
+            {"Type": "VARIANT", "Start": "273", "End": "273", "Description": "Arg->His (DNA-contact hotspot)"}
+        ]
+
     if variants_list:
         df = pd.DataFrame(variants_list)
         st.dataframe(

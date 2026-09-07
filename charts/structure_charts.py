@@ -177,7 +177,7 @@ def ramachandran_figure(
 
 
 def contact_map_figure(pdb_text: str) -> go.Figure:
-    """Generates an interactive residue-residue distance matrix contact map with clean, uncluttered axes."""
+    """Generates an ultra-clean contact map with rotated, well-spaced tick labels for maximum readability."""
     parser = PDBParser(QUIET=True)
     structure = parser.get_structure("protein", io.StringIO(pdb_text))
     
@@ -199,7 +199,8 @@ def contact_map_figure(pdb_text: str) -> go.Figure:
     dist_matrix = np.linalg.norm(coords[:, None, :] - coords[None, :, :], axis=-1)
     n_residues = len(residue_labels)
 
-    step = max(1, n_residues // 15)
+    # Show fewer ticks so labels never crowd or overlap
+    step = max(1, n_residues // 10)
     tick_vals = list(range(0, n_residues, step))
     tick_text = [residue_labels[i] for i in tick_vals]
 
@@ -219,7 +220,8 @@ def contact_map_figure(pdb_text: str) -> go.Figure:
             tickmode="array",
             tickvals=tick_vals,
             ticktext=tick_text,
-            tickfont=dict(color="#8b949e"),
+            tickangle=-45,
+            tickfont=dict(color="#8b949e", size=11),
             gridcolor="rgba(255,255,255,0.05)",
         ),
         yaxis=dict(
@@ -227,13 +229,13 @@ def contact_map_figure(pdb_text: str) -> go.Figure:
             tickmode="array",
             tickvals=tick_vals,
             ticktext=tick_text,
-            tickfont=dict(color="#8b949e"),
+            tickfont=dict(color="#8b949e", size=11),
             gridcolor="rgba(255,255,255,0.05)",
             autorange="reversed",
         ),
         template="plotly_dark",
         paper_bgcolor="#0b0f19",
         plot_bgcolor="#0b0f19",
-        margin=dict(l=60, r=40, t=60, b=50),
+        margin=dict(l=60, r=40, t=60, b=90),
     )
     return fig

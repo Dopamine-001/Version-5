@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import streamlit as st
+import streamlit.components.v1 as components
 import py3dmol
-from streamlit_py3dmol import st_py3dmol
 from core.ligands import extract_ligands_from_pdb
 
 
@@ -59,7 +59,9 @@ def render_ligand_analysis_tab(pdb_data: str):
             )
             
             view.zoomTo({'resn': resn, 'resi': resi})
-            st_py3dmol(view, height=500)
+            
+            # Render natively using Streamlit components
+            components.html(view._make_html(), height=520, scrolling=False)
             
         with col2:
             st.markdown("#### Pocket Interaction Key")

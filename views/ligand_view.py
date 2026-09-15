@@ -17,11 +17,16 @@ def fetch_rcsb_pdb(pdb_id: str) -> str:
 
 
 def render_ligand_analysis_tab(default_pdb_data: str):
-    """Renders the ligand and binding pocket inspection tool with experimental PDB support."""
+    """Renders the ligand and binding pocket inspection tool with persistent PDB support."""
     st.markdown("### 🧪 Ligand & Binding Pocket Explorer")
     st.caption("Inspect bound co-factors, substrates, or inhibitors and analyze surrounding pocket residues.")
 
-    # Give users the option to load an experimental PDB structure containing ligands
+    # Initialize session state for custom loaded PDB data
+    if "custom_ligand_pdb" not in st.session_state:
+        st.session_state["custom_ligand_pdb"] = None
+    if "loaded_pdb_id" not in st.session_state:
+        st.session_state["loaded_pdb_id"] = ""
+
     st.markdown("##### 🔬 Structure Source Selection")
     source_mode = st.radio(
         "Choose structure source for ligand analysis:",
@@ -31,6 +36,7 @@ def render_ligand_analysis_tab(default_pdb_data: str):
     )
 
     pdb_data = default_pdb_data
+    
     if source_mode == "Load Experimental PDB ID (e.g. 1HBB, 1IEP)":
         col_inp, col_btn = st.columns([2, 1])
         with col_inp:
@@ -39,14 +45,20 @@ def render_ligand_analysis_tab(default_pdb_data: str):
             st.markdown("<br>", unsafe_allow_html=True)
             load_clicked = st.button("Fetch Structure", key="fetch_pdb_btn")
             
-        if custom_pdb_id:
+        if load_clicked and custom_pdb_id:
             with st.spinner(f"Fetching experimental PDB {custom_pdb_id.upper()} from RCSB..."):
                 fetched_text = fetch_rcsb_pdb(custom_pdb_id)
                 if fetched_text:
-                    pdb_data = fetched_text
+                    st.session_state["custom_ligand_pdb"] = fetched_text
+                    st.session_state["loaded_pdb_id"] = custom_pdb_id.upper()
                     st.success(f"Successfully loaded experimental structure `{custom_pdb_id.upper()}`!")
                 else:
                     st.error(f"Could not retrieve PDB ID `{custom_pdb_id}`. Please check the code.")
+
+        # Use session state PDB if available
+        if st.session_state["custom_ligand_pdb"]:
+            pdb_data = st.session_state["custom_ligand_pdb"]
+            st.caption(f"Currently active experimental structure: **{st.session_state['loaded_pdb_id']}**")
 
     if not pdb_data:
         st.warning("No structural PDB coordinate data available.")
@@ -55,7 +67,7 @@ def render_ligand_analysis_tab(default_pdb_data: str):
     ligands = extract_ligands_from_pdb(pdb_data)
     
     if not ligands:
-        st.info("No non-water bound ligands (`HETATM`) found in this structure file. Try loading an experimental crystal structure like **1HBB** or **1IEP** using the selector above.")
+        st.info("No non-water bound ligands (`HETATM`) found in this structure file. Make sure you clicked **Fetch Structure** after entering an ID like **1HBB** or **1IEP**.")
         return
         
     st.success(f"Detected **{len(ligands)}** potential ligand/heteroatom entity(ies).")

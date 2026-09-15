@@ -3,22 +3,33 @@ import requests
 import streamlit as st
 
 @st.cache_data(show_spinner=False)
-def get_pdb_ids_for_uniprot(uniprot_accession: str) -> list[str]:
-    """Queries PDBe API to find experimental PDB structures associated with a UniProt accession."""
+def get_ligand_containing_pdb(uniprot_accession: str) -> tuple[str, str]:
+    """Automatically finds and downloads an experimental PDB containing ligands for a UniProt ID."""
     if not uniprot_accession:
-        return []
+        return "", ""
+    
     url = f"https://www.ebi.ac.uk/pdbe/api/mappings/uniprot/{uniprot_accession.upper()}"
     try:
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
             data = response.json()
-            acc_data = data.get(uniprot_accession.upper(), {})
-            mappings = acc_data.get("mappings", [])
-            pdb_ids = list(set(m.get("pdb_id") for m in mappings if m.get("pdb_id")))
-            return sorted(pdb_ids)
+            mappings = data.get(uniprot_accession.upper(), {}).get("mappings", [])
+            
+            # Check up to the first 4 experimental PDBs for bound ligands
+            for m in mappings[:4]:
+                pdb_id = m.get("pdb_id")
+                if pdb_id:
+                    rcsb_url = f"https://files.rcsb.org/download/{pdb_id.upper()}.pdb"
+                    pdb_res = requests.get(rcsb_url, timeout=5)
+                    if pdb_res.status_code == 200:
+                        text = pdb_res.text
+                        # Verify it actually has HETATM ligands (excluding water)
+                        if any(line.startswith("HETATM") and not any(w in line for w in ["HOH", "WAT", "DOD"]) for line in text.splitlines()):
+                            return pdb_id.upper(), text
     except Exception:
         pass
-    return []
+    
+    return "", ""
 
 @st.cache_data(show_spinner=False)
 def fetch_rcsb_pdb(pdb_id: str) -> str:
@@ -33,7 +44,7 @@ def fetch_rcsb_pdb(pdb_id: str) -> str:
     return ""
 
 def extract_ligands_from_pdb(pdb_text: str) -> list[dict]:
-    """Scans PDB text content for HETATM lines to identify bound ligands with rich details."""
+    """Scans PDB text content for HETATM lines to identify bound ligands."""
     ligands = []
     seen = set()
     
@@ -46,8 +57,7 @@ def extract_ligands_from_pdb(pdb_text: str) -> list[dict]:
             chain = line[21:22].strip()
             resseq = line[22:26].strip()
             
-            # Filter out standard water molecules and common crystallization buffers/ions
-            if resname in ["HOH", "WAT", "DOD", "SO4", "PO4", "CL", "NA", "MG", "CA", "EDTA"]:
+            if resname in ["HOH", "WAT", "DOD", "SO4", "PO4", "CL", "NA", "MG", "CA"]:
                 continue
                 
             identifier = f"{resname}_{chain}_{resseq}"
@@ -57,13 +67,13 @@ def extract_ligands_from_pdb(pdb_text: str) -> list[dict]:
                     "resname": resname,
                     "chain": chain,
                     "resseq": resseq,
-                    "label": f"Ligand: {resname} (Chain {chain}, Position {resseq})"
+                    "label": f"Ligand: {resname} (Chain {chain}, Res {resseq})"
                 })
                 
     return ligands
 
 def get_detailed_pocket_contacts(pdb_text: str, ligand_resseq: str, ligand_chain: str) -> list[dict]:
-    """Extracts detailed binding pocket residues surrounding the target ligand."""
+    """Extracts binding pocket residues surrounding the target ligand."""
     pocket = []
     try:
         target_seq = int(ligand_resseq)
@@ -77,14 +87,13 @@ def get_detailed_pocket_contacts(pdb_text: str, ligand_resseq: str, ligand_chain
                 r_name = line[17:20].strip()
                 atom_name = line[12:16].strip()
                 
-                # Identify neighboring residues within a local sequence/spatial proximity window
-                if 0 < abs(r_seq - target_seq) <= 6 and r_seq != target_seq:
+                if abs(r_seq - target_seq) <= 5 and r_seq != target_seq:
                     pocket.append({
                         "Residue": r_name,
                         "Position": r_seq,
                         "Chain": ligand_chain,
-                        "Contact Atom": atom_name,
-                        "Interaction Type": "Non-covalent Proximity"
+                        "Atom": atom_name,
+                        "Interaction": "Binding Pocket Contact"
                     })
             except ValueError:
                 continue

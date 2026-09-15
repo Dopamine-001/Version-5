@@ -960,14 +960,26 @@ def _render_ramachandran_tab(pdb_text) -> None:
 
 def _render_blast_tab(protein: dict, sequence: str) -> None:
     st.markdown(
-        '<div class="section-title">BLAST similarity search</div>',
+        '<div class="section-title">BLAST Similarity Search (NCBI)</div>',
         unsafe_allow_html=True,
     )
-    if st.button("Run BLAST search", key=f"blast_{protein['accession']}"):
-        with st.spinner("Running BLAST search..."):
+    st.info("⏳ **Note:** Remote BLAST searches query the entire NCBI database and can take 1 to 3 minutes to complete. Please keep this tab open while it runs.")
+    
+    if st.button("Run BLASTp Search", type="primary", key=f"blast_{protein['accession']}"):
+        with st.spinner("Connecting to NCBI BLAST servers... this may take a few minutes..."):
             hits = run_blast_search(sequence)
-        for hit in hits:
-            st.write(f"- {hit['title']}")
+            
+        if not hits:
+            st.warning("No significant sequence matches found (E-value < 0.05).")
+        elif isinstance(hits, list) and len(hits) > 0 and "error" in hits[0]:
+            st.error(f"NCBI Server Error: {hits[0]['error']}. Please try again later.")
+        else:
+            st.success(f"Successfully retrieved {len(hits)} significant homolog matches!")
+            st.dataframe(
+                pd.DataFrame(hits), 
+                use_container_width=True, 
+                hide_index=True
+            )
 
 
 # ============================================================

@@ -41,6 +41,7 @@ from viewer.structure_viewer import (
     render_structure,
 )
 from views.comparison_workspace import render_comparison
+from views.ligand_view import render_ligand_analysis_tab
 
 
 # ============================================================
@@ -90,6 +91,7 @@ def show_protein(protein_query: str) -> None:
             "NCBI Gene",
             "Primary Structure",
             "3D Structure",
+            "Ligands",
             "Hydrophobicity",
             "Mutations",
             "Domains & Sites",
@@ -131,27 +133,30 @@ def show_protein(protein_query: str) -> None:
         )
 
     with tabs[4]:
+        render_ligand_analysis_tab(pdb_text)
+
+    with tabs[5]:
         _render_hydrophobicity_tab(
             protein,
             sequence,
         )
 
-    with tabs[5]:
+    with tabs[6]:
         _render_mutations_tab(
             protein,
             sequence,
         )
 
-    with tabs[6]:
+    with tabs[7]:
         _render_domains_sites_tab(protein)
 
-    with tabs[7]:
+    with tabs[8]:
         _render_ptms_tab(protein)
 
-    with tabs[8]:
+    with tabs[9]:
         _render_ramachandran_tab(pdb_text)
 
-    with tabs[9]:
+    with tabs[10]:
         st.markdown('<div class="section-title">Structural Contact Map (Cα Distance Matrix)</div>', unsafe_allow_html=True)
         st.caption("Visualizes physical 3D distances between amino acid pairs to highlight tertiary folding domains and interaction interfaces.")
         if pdb_text:
@@ -159,16 +164,16 @@ def show_protein(protein_query: str) -> None:
         else:
             st.info("No structure available for contact map generation.")
 
-    with tabs[10]:
+    with tabs[11]:
         _render_blast_tab(protein, sequence)
 
-    with tabs[11]:
+    with tabs[12]:
         _render_disorder_tab(protein)
 
-    with tabs[12]:
+    with tabs[13]:
         _render_hpa_tab(protein)
 
-    with tabs[13]:
+    with tabs[14]:
         _render_comparison_tab(
             protein,
             sequence,

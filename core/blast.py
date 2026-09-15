@@ -1,23 +1,24 @@
-# core/blast.py
 from __future__ import annotations
 
 import time
 import io
 import requests
+import streamlit as st
 from Bio.Blast import NCBIXML
 
-
-def run_blast_search(sequence: str, max_wait_seconds: int = 60) -> list[dict]:
+# Cache the results for 24 hours so you only wait once per sequence!
+@st.cache_data(show_spinner=False, ttl=86400)
+def run_blast_search(sequence: str, max_wait_seconds: int = 180) -> list[dict]:
     """
-    Submits a protein sequence to NCBI BLAST (blastp against swissprot) 
-    for fast, reliable homology matching.
+    Submits a protein sequence to NCBI BLAST safely with extended timeout 
+    and explicit error reporting.
     """
     submit_url = "https://blast.ncbi.nlm.nih.gov/Blast.cgi"
     submit_params = {
         "CMD": "Put",
         "PROGRAM": "blastp",
-        "DATABASE": "swissprot",  # swissprot is much faster and more reliable than 'nr'
-        "QUERY": sequence[:1000],   # Truncate long sequences for faster processing
+        "DATABASE": "swissprot", 
+        "QUERY": sequence[:1000],
         "EXPECT": "10",
         "FORMAT_TYPE": "XML",
     }
@@ -33,29 +34,31 @@ def run_blast_search(sequence: str, max_wait_seconds: int = 60) -> list[dict]:
                 break
 
         if not rid:
-            return []
+            return [{"error": "Failed to receive a Request ID (RID) from NCBI servers."}]
 
         status_params = {"CMD": "Get", "FORMAT_OBJECT": "SearchInfo", "RID": rid}
         waited = 0
         
-        # Poll NCBI for results with status checking
+        # Poll NCBI (checking every 10 seconds to avoid being rate-limited)
         while waited < max_wait_seconds:
-            time.sleep(4)
-            waited += 4
+            time.sleep(10)
+            waited += 10
             status_resp = requests.get(submit_url, params=status_params, timeout=20)
             
             if "Status=READY" in status_resp.text:
-                # Check if it actually has hit data ready
-                if "ThereAreHits=yes" in status_resp.text or "Status=READY" in status_resp.text:
+                if "ThereAreHits=yes" in status_resp.text:
                     break
+                elif "ThereAreHits=no" in status_resp.text:
+                    return [] # Genuine lack of homologs
+                break
             elif "Status=FAILED" in status_resp.text or "Status=UNKNOWN" in status_resp.text:
-                return []
+                return [{"error": "NCBI Server failed to process the request."}]
         else:
-            return []  # Timed out
+            return [{"error": f"Search timed out after {max_wait_seconds}s. NCBI is under heavy load."}]
 
         # Fetch XML results
         result_params = {"CMD": "Get", "FORMAT_TYPE": "XML", "RID": rid}
-        result_resp = requests.get(submit_url, params=result_params, timeout=25)
+        result_resp = requests.get(submit_url, params=result_params, timeout=30)
         result_resp.raise_for_status()
 
         if "<Hit>" not in result_resp.text:
@@ -67,20 +70,19 @@ def run_blast_search(sequence: str, max_wait_seconds: int = 60) -> list[dict]:
         for alignment in blast_record.alignments:
             for hsp in alignment.hsps:
                 identity_pct = round((hsp.identities / hsp.align_length) * 100, 1) if hsp.align_length > 0 else 0.0
+                
+                # Format exactly as the Streamlit UI expects
                 hits.append({
-                    "title": alignment.title,
-                    "accession": alignment.accession,
-                    "length": alignment.length,
-                    "e_value": f"{hsp.expect:.2e}",
-                    "identities_pct": f"{identity_pct}%",
-                    "score": hsp.score
+                    "Match Title": alignment.title[:80] + "..." if len(alignment.title) > 80 else alignment.title,
+                    "Length": alignment.length,
+                    "Identity": f"{identity_pct}%",
+                    "E-Value": f"{hsp.expect:.2e}"
                 })
-                break
-            if len(hits) >= 10:
+                break # Only take the best matching segment per protein
+            if len(hits) >= 15:
                 break
 
         return hits
 
     except Exception as e:
-        print(f"BLAST Execution Error: {e}")
-        return []
+        return [{"error": f"Network exception: {str(e)}"}]

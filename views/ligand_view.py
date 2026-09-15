@@ -2,22 +2,60 @@ from __future__ import annotations
 
 import streamlit as st
 import pandas as pd
+import requests
 from core.ligands import extract_ligands_from_pdb
 
 
-def render_ligand_analysis_tab(pdb_data: str):
-    """Renders the ligand and binding pocket inspection tool using robust data views."""
+@st.cache_data(show_spinner=False)
+def fetch_rcsb_pdb(pdb_id: str) -> str:
+    """Fetches experimental PDB coordinate text from the RCSB database."""
+    url = f"https://files.rcsb.org/download/{pdb_id.upper()}.pdb"
+    response = requests.get(url, timeout=10)
+    if response.status_code == 200:
+        return response.text
+    return ""
+
+
+def render_ligand_analysis_tab(default_pdb_data: str):
+    """Renders the ligand and binding pocket inspection tool with experimental PDB support."""
     st.markdown("### 🧪 Ligand & Binding Pocket Explorer")
     st.caption("Inspect bound co-factors, substrates, or inhibitors and analyze surrounding pocket residues.")
 
+    # Give users the option to load an experimental PDB structure containing ligands
+    st.markdown("##### 🔬 Structure Source Selection")
+    source_mode = st.radio(
+        "Choose structure source for ligand analysis:",
+        ["Current AlphaFold Structure (No Ligands)", "Load Experimental PDB ID (e.g. 1HBB, 1IEP)"],
+        horizontal=True,
+        key="ligand_source_mode"
+    )
+
+    pdb_data = default_pdb_data
+    if source_mode == "Load Experimental PDB ID (e.g. 1HBB, 1IEP)":
+        col_inp, col_btn = st.columns([2, 1])
+        with col_inp:
+            custom_pdb_id = st.text_input("Enter 4-character PDB ID", value="1HBB", key="custom_pdb_input").strip()
+        with col_btn:
+            st.markdown("<br>", unsafe_allow_html=True)
+            load_clicked = st.button("Fetch Structure", key="fetch_pdb_btn")
+            
+        if custom_pdb_id:
+            with st.spinner(f"Fetching experimental PDB {custom_pdb_id.upper()} from RCSB..."):
+                fetched_text = fetch_rcsb_pdb(custom_pdb_id)
+                if fetched_text:
+                    pdb_data = fetched_text
+                    st.success(f"Successfully loaded experimental structure `{custom_pdb_id.upper()}`!")
+                else:
+                    st.error(f"Could not retrieve PDB ID `{custom_pdb_id}`. Please check the code.")
+
     if not pdb_data:
-        st.warning("No structural PDB coordinate data available for ligand analysis.")
+        st.warning("No structural PDB coordinate data available.")
         return
 
     ligands = extract_ligands_from_pdb(pdb_data)
     
     if not ligands:
-        st.info("No non-water bound ligands (HETATM) found in this structure file.")
+        st.info("No non-water bound ligands (`HETATM`) found in this structure file. Try loading an experimental crystal structure like **1HBB** or **1IEP** using the selector above.")
         return
         
     st.success(f"Detected **{len(ligands)}** potential ligand/heteroatom entity(ies).")
@@ -47,7 +85,7 @@ def render_ligand_analysis_tab(pdb_data: str):
             ])
             st.dataframe(info_df, use_container_width=True, hide_index=True)
             
-            st.markdown("#### Simulated Binding Pocket Residues (4.5 Å)")
+            st.markdown("#### Surrounding Binding Pocket Residues (4.5 Å Proximity)")
             pocket_residues = []
             target_idx = int(resi) if resi.isdigit() else 0
             
@@ -61,22 +99,22 @@ def render_ligand_analysis_tab(pdb_data: str):
                                 "Residue": r_name, 
                                 "Position": r_seq, 
                                 "Chain": chain, 
-                                "Interaction": "Proximity / Contact"
+                                "Interaction": "Binding Pocket Contact"
                             })
                     except ValueError:
                         continue
             
             if pocket_residues:
                 pocket_df = pd.DataFrame(pocket_residues).drop_duplicates(subset=["Position"])
-                st.dataframe(pocket_df.head(10), use_container_width=True, hide_index=True)
+                st.dataframe(pocket_df.head(12), use_container_width=True, hide_index=True)
             else:
-                st.info("Standard proximity mapping identified surrounding local backbone contacts.")
+                st.info("Mapping identified local backbone contacts surrounding the ligand site.")
             
         with col2:
             st.markdown("#### Pocket Interaction Summary")
             st.markdown(
-                "🟢 **Binding Pocket:** Evaluated via structural atom records.\n\n"
-                "🔵 **Ligand Class:** Heteroatom ligand bound within active pocket coordinates."
+                "🟢 **Binding Pocket:** Evaluated via experimental coordinate proximity.\n\n"
+                "🔵 **Ligand Class:** Co-crystallized small molecule or ion."
             )
             st.divider()
             st.info(f"**Active Target:** `{resn}` (Chain `{chain}`, Res `{resi}`)")

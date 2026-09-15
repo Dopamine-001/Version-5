@@ -61,20 +61,22 @@ def render_landing() -> None:
 
 
 def _render_explore_mode() -> None:
-    search_col, button_col = st.columns([5, 1])
-    with search_col:
-        protein_query = st.text_input(
-            "Protein, gene or UniProt accession",
-            placeholder="Try: hemoglobin, insulin, TP53, P68871",
-            label_visibility="collapsed",
-            key="protein_search",
-        )
-    with button_col:
-        explore = st.button("Explore", type="primary", width="stretch", key="explore_button")
+    # WRAPPED IN A FORM SO ENTER KEY WORKS
+    with st.form(key="explore_form"):
+        search_col, button_col = st.columns([5, 1])
+        with search_col:
+            protein_query = st.text_input(
+                "Protein, gene or UniProt accession",
+                placeholder="Try: hemoglobin, insulin, TP53, P68871",
+                label_visibility="collapsed",
+                key="protein_search",
+            )
+        with button_col:
+            explore = st.form_submit_button("Explore", type="primary", use_container_width=True)
 
-    if explore and protein_query.strip():
-        st.session_state["active_protein_query"] = protein_query.strip()
-        st.rerun()
+        if explore and protein_query.strip():
+            st.session_state["active_protein_query"] = protein_query.strip()
+            st.rerun()
 
     st.markdown("### Start with a protein")
 
@@ -117,17 +119,20 @@ def _render_compare_mode() -> None:
         their properties, hydrophobicity, composition and predicted structures side by side.
         """
     )
-    c1, c2, c3 = st.columns([3, 3, 1])
-    with c1:
-        query1 = st.text_input("First protein", placeholder="e.g. hemoglobin subunit alpha")
-    with c2:
-        query2 = st.text_input("Second protein", placeholder="e.g. hemoglobin subunit beta")
-    with c3:
-        st.markdown("<div style='height:1.85rem'></div>", unsafe_allow_html=True)
-        compare = st.button("Compare", type="primary", width="stretch")
+    
+    # WRAPPED IN A FORM SO ENTER KEY WORKS
+    with st.form(key="compare_form"):
+        c1, c2, c3 = st.columns([3, 3, 1])
+        with c1:
+            query1 = st.text_input("First protein", placeholder="e.g. hemoglobin subunit alpha")
+        with c2:
+            query2 = st.text_input("Second protein", placeholder="e.g. hemoglobin subunit beta")
+        with c3:
+            st.markdown("<div style='height:1.85rem'></div>", unsafe_allow_html=True)
+            compare = st.form_submit_button("Compare", type="primary", use_container_width=True)
 
-    if compare and query1.strip() and query2.strip():
-        st.session_state["active_compare_queries"] = (query1.strip(), query2.strip())
-        st.rerun()
-    elif compare:
-        st.warning("Enter both proteins to run a comparison.")
+        if compare and query1.strip() and query2.strip():
+            st.session_state["active_compare_queries"] = (query1.strip(), query2.strip())
+            st.rerun()
+        elif compare:
+            st.warning("Enter both proteins to run a comparison.")

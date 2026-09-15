@@ -6,12 +6,11 @@ import requests
 import streamlit as st
 from Bio.Blast import NCBIXML
 
-# Cache the results for 24 hours so you only wait once per sequence!
 @st.cache_data(show_spinner=False, ttl=86400)
-def run_blast_search(sequence: str, max_wait_seconds: int = 180) -> list[dict]:
+def run_blast_search(sequence: str, max_wait_seconds: int = 300) -> list[dict]:
     """
-    Submits a protein sequence to NCBI BLAST safely with extended timeout 
-    and explicit error reporting.
+    Submits a protein sequence to NCBI BLAST safely with an extended 
+    300-second timeout window to handle heavy server loads.
     """
     submit_url = "https://blast.ncbi.nlm.nih.gov/Blast.cgi"
     submit_params = {
@@ -39,7 +38,7 @@ def run_blast_search(sequence: str, max_wait_seconds: int = 180) -> list[dict]:
         status_params = {"CMD": "Get", "FORMAT_OBJECT": "SearchInfo", "RID": rid}
         waited = 0
         
-        # Poll NCBI (checking every 10 seconds to avoid being rate-limited)
+        # Poll NCBI every 10 seconds up to 300 seconds (5 minutes)
         while waited < max_wait_seconds:
             time.sleep(10)
             waited += 10
@@ -54,7 +53,7 @@ def run_blast_search(sequence: str, max_wait_seconds: int = 180) -> list[dict]:
             elif "Status=FAILED" in status_resp.text or "Status=UNKNOWN" in status_resp.text:
                 return [{"error": "NCBI Server failed to process the request."}]
         else:
-            return [{"error": f"Search timed out after {max_wait_seconds}s. NCBI is under heavy load."}]
+            return [{"error": f"Search timed out after {max_wait_seconds}s. NCBI is experiencing extreme traffic."}]
 
         # Fetch XML results
         result_params = {"CMD": "Get", "FORMAT_TYPE": "XML", "RID": rid}
@@ -71,14 +70,13 @@ def run_blast_search(sequence: str, max_wait_seconds: int = 180) -> list[dict]:
             for hsp in alignment.hsps:
                 identity_pct = round((hsp.identities / hsp.align_length) * 100, 1) if hsp.align_length > 0 else 0.0
                 
-                # Format exactly as the Streamlit UI expects
                 hits.append({
                     "Match Title": alignment.title[:80] + "..." if len(alignment.title) > 80 else alignment.title,
                     "Length": alignment.length,
                     "Identity": f"{identity_pct}%",
                     "E-Value": f"{hsp.expect:.2e}"
                 })
-                break # Only take the best matching segment per protein
+                break 
             if len(hits) >= 15:
                 break
 

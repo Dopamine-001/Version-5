@@ -4,7 +4,7 @@ import streamlit.components.v1 as components
 from core.ligands import fetch_rcsb_pdb, extract_ligands_from_pdb, get_detailed_pocket_contacts
 
 def render_3d_visualizer(pdb_id: str, resn: str, chain: str, resi: str):
-    """Bypasses Python py3dmol and renders 3Dmol.js directly in the browser."""
+    """Bypasses Python py3dmol and renders 3Dmol.js directly in the browser with surfaces and labels."""
     html_code = f"""
     <!DOCTYPE html>
     <html>
@@ -24,13 +24,20 @@ def render_3d_visualizer(pdb_id: str, resn: str, chain: str, resi: str):
                     // 1. Style the base protein (Semi-transparent gray cartoon)
                     viewer.setStyle({{}}, {{cartoon: {{color: '#aaaaaa', opacity: 0.5}}}});
                     
-                    // 2. Style the Binding Pocket (Green sticks)
-                    let pocket_sel = {{within: {{distance: 5.0, sel: {{resn: '{resn}', chain: '{chain}', resi: '{resi}'}}}}}};
+                    let ligand_sel = {{resn: '{resn}', chain: '{chain}', resi: '{resi}'}};
+                    let pocket_sel = {{within: {{distance: 5.0, sel: ligand_sel}}}};
+                    
+                    // 2. Draw pocket residues (Green sticks)
                     viewer.addStyle(pocket_sel, {{stick: {{colorscheme: 'greenCarbon', radius: 0.15}}}});
                     
-                    // 3. Style the Target Ligand (Cyan sticks, thicker)
-                    let ligand_sel = {{resn: '{resn}', chain: '{chain}', resi: '{resi}'}};
+                    // 3. Draw target ligand (Cyan sticks, thicker)
                     viewer.addStyle(ligand_sel, {{stick: {{colorscheme: 'cyanCarbon', radius: 0.3}}}});
+                    
+                    // 4. NEW: Add a semi-transparent Van der Waals surface to show cavity shape
+                    viewer.addSurface($3Dmol.SurfaceType.VDW, {{opacity: 0.4, color: 'white'}}, pocket_sel);
+                    
+                    // 5. NEW: Add 3D text labels to identify the interacting residues
+                    viewer.addResLabels(pocket_sel, {{font: 'sans-serif', fontSize: 12, fontColor: 'white', showBackground: false}});
                     
                     // Zoom specifically to the ligand
                     viewer.zoomTo(ligand_sel);
@@ -61,13 +68,19 @@ def render_ligand_analysis_tab(*args, **kwargs):
         st.session_state["ligand_pdb_text"] = ""
 
     st.markdown("##### 🔬 Load Experimental Structure")
-    c_input, c_btn = st.columns([3, 1])
     
-    with c_input:
-        input_pdb = st.text_input("Enter 4-letter RCSB PDB ID (e.g. 1HBB, 1IEP)", value="1HBB").strip()
-    with c_btn:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Fetch Ligands", type="primary", use_container_width=True):
+    # NEW: Wrapped in an st.form so the Enter key works seamlessly
+    with st.form(key="ligand_fetch_form"):
+        c_input, c_btn = st.columns([3, 1])
+        
+        with c_input:
+            input_pdb = st.text_input("Enter 4-letter RCSB PDB ID (e.g. 1HBB, 1IEP)", value="1HBB").strip()
+        with c_btn:
+            st.markdown("<br>", unsafe_allow_html=True)
+            # NEW: Changed to st.form_submit_button
+            submitted = st.form_submit_button("Fetch Ligands", type="primary", use_container_width=True)
+            
+        if submitted:
             with st.spinner(f"Downloading {input_pdb.upper()}..."):
                 result = fetch_rcsb_pdb(input_pdb)
                 if result["success"]:
@@ -114,7 +127,7 @@ def render_ligand_analysis_tab(*args, **kwargs):
 
         st.markdown("---")
         st.markdown("#### 🧬 3D Interaction Viewer")
-        st.caption(f"Visualizing {selected['resname']} in pocket (Cyan = Ligand, Green = 5Å Contact Residues)")
+        st.caption(f"Visualizing {selected['resname']} in pocket (Cyan = Ligand, Green = 5Å Contact Residues, White = Cavity Surface)")
         
         # Inject the 3Dmol.js HTML viewer using the current active ID
         if active_id != "AlphaFold (No Ligands)":

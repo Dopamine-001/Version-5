@@ -464,6 +464,48 @@ hr {
     background: #3a3a3a;
 }
 
+
+/* =========================================================
+   MOBILE RESPONSIVE FIXES (Screens <= 768px)
+   ========================================================= */
+
+@media screen and (max-width: 768px) {
+    /* 1. Reduce side padding so content uses full width */
+    .block-container {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+        padding-top: 1.25rem !important;
+    }
+
+    /* 2. Force multi-column sections to stack naturally on mobile */
+    [data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        min-width: 100% !important;
+        margin-bottom: 0.65rem;
+    }
+
+    /* 3. Scale down hero title for mobile viewports */
+    .hero-title {
+        font-size: 2rem !important;
+    }
+
+    .hero {
+        padding: 1.5rem 1.25rem 1.25rem !important;
+    }
+
+    /* 4. Make interactive buttons full width for easier tapping */
+    .stButton > button {
+        width: 100% !important;
+    }
+
+    /* 5. Prevent tables/code blocks from blowing out screen width */
+    [data-testid="stDataFrame"], .stCode, pre {
+        max-width: 100% !important;
+        overflow-x: auto !important;
+    }
+}
+
 </style>
 """
 

@@ -11,50 +11,75 @@ from core.ligands import (
 
 
 def render_ligand_analysis_tab(protein_record: dict, default_pdb_data: str):
-    """Renders a detailed, comprehensive ligand and binding pocket inspection dashboard."""
+    """Renders an automated ligand & pocket explorer using mapped experimental PDBs."""
     st.markdown("### 🧪 Universal Ligand & Binding Pocket Explorer")
-    st.caption("Inspect co-factors, inhibitors, and detailed atomic binding site interactions for experimental structures.")
+    st.caption("Automatically scanning experimental crystal structures and bound co-factors for this protein.")
 
     accession = protein_record.get("accession", "")
     
-    with st.spinner("Querying PDBe for experimental structures..."):
-        experimental_pdb_ids = get_pdb_ids_for_uniprot(accession)
+    # Session state key to keep track of selected structure per protein
+    cache_key = f"auto_pdb_{accession}"
 
-    col_sel, col_man = st.columns([2, 1])
-    with col_sel:
+    if cache_key not in st.session_state:
+        with st.spinner("Finding experimental crystal structures with bound ligands..."):
+            pdb_ids = get_pdb_ids_for_uniprot(accession)
+            st.session_state[cache_key] = pdb_ids
+
+    experimental_pdb_ids = st.session_state.get(cache_key, [])
+
+    # Let user choose or fallback to manual input/AlphaFold
+    col1, col2 = st.columns([2, 1])
+    with col1:
         selected_pdb = st.selectbox(
-            "Select Experimental PDB Structure",
-            options=experimental_pdb_ids if experimental_pdb_ids else ["No mapped PDBs found"],
-            key=f"pdb_select_{accession}"
+            "Mapped Experimental PDB Structures",
+            options=experimental_pdb_ids if experimental_pdb_ids else ["No experimental PDB mapped"],
+            key=f"select_pdb_{accession}"
         )
-    with col_man:
-        manual_id = st.text_input("Or type PDB ID", placeholder="e.g. 1HBB, 1IEP", key=f"manual_pdb_{accession}").strip()
+    with col2:
+        manual_override = st.text_input("Or enter PDB ID", placeholder="e.g. 1BEN", key=f"manual_{accession}").strip()
 
-    target_pdb_id = manual_id.upper() if manual_id else (selected_pdb if selected_pdb != "No mapped PDBs found" else "")
+    target_id = manual_override.upper() if manual_override else (selected_pdb if selected_pdb != "No experimental PDB mapped" else "")
 
+    # Fetch PDB text
     pdb_data = default_pdb_data
-    if target_pdb_id and target_pdb_id != "NO MAPPED PDBS FOUND":
-        with st.spinner(f"Fetching structure {target_pdb_id} from RCSB..."):
-            fetched_text = fetch_rcsb_pdb(target_pdb_id)
+    active_source_label = "AlphaFold Model (No Ligands)"
+
+    if target_id:
+        with st.spinner(f"Fetching structure `{target_id}` from RCSB PDB..."):
+            fetched_text = fetch_rcsb_pdb(target_id)
             if fetched_text:
                 pdb_data = fetched_text
-                st.success(f"Successfully loaded experimental structure `{target_pdb_id}`.")
+                active_source_label = f"Experimental PDB: {target_id}"
             else:
-                st.error(f"Could not retrieve PDB file for `{target_pdb_id}`.")
+                st.error(f"Failed to download structure for `{target_id}`.")
+    elif experimental_pdb_ids:
+        # Automatically pull the first available experimental structure if none chosen manually
+        auto_id = experimental_pdb_ids[0]
+        with st.spinner(f"Auto-loading primary experimental structure `{auto_id}`..."):
+            fetched_text = fetch_rcsb_pdb(auto_id)
+            if fetched_text:
+                pdb_data = fetched_text
+                active_source_label = f"Experimental PDB: {auto_id}"
 
+    st.markdown(f"**Active Source:** `{active_source_label}`")
+
+    # Extract ligands
     ligands = extract_ligands_from_pdb(pdb_data)
 
     if not ligands:
-        st.warning("No active bound ligands (`HETATM`) found in this structure file. Please choose an alternative experimental PDB ID from the dropdown or enter one manually.")
+        st.warning(
+            "No non-water bound ligands (`HETATM`) were detected in this structure file. "
+            "Try selecting a different PDB ID from the dropdown above or typing a known structure ID (e.g., `1HBB` for hemoglobin, `1BEN` for insulin complexes)."
+        )
         return
 
-    st.markdown(f"**Found {len(ligands)} bound ligand entity(ies) in structure `{target_pdb_id or 'Model'}`.**")
+    st.success(f"Successfully detected **{len(ligands)}** active ligand(s) / co-factor(s).")
 
     selected_ligand = st.selectbox(
-        "Choose Ligand to Examine",
+        "Select Ligand to Analyze",
         options=ligands,
         format_func=lambda x: x["label"],
-        key=f"ligand_dropdown_{accession}"
+        key=f"lig_drop_{accession}"
     )
 
     if selected_ligand:
@@ -62,36 +87,30 @@ def render_ligand_analysis_tab(protein_record: dict, default_pdb_data: str):
         chain = selected_ligand["chain"]
         resi = selected_ligand["resseq"]
 
-        # Detailed Layout Split
-        col_summary, col_details = st.columns([1, 1], gap="large")
+        col_meta, col_pocket = st.columns([1, 1], gap="large")
 
-        with col_summary:
-            st.markdown("#### 📋 Chemical Metadata")
+        with col_meta:
+            st.markdown("#### 📋 Ligand Profile")
             meta_df = pd.DataFrame([
-                {"Metric": "Ligand Code", "Detail": resn},
-                {"Metric": "Chain Identifier", "Detail": chain},
-                {"Metric": "Residue Index", "Detail": resi},
-                {"Metric": "Classification", "Detail": "Co-crystallized Heteroatom / Inhibitor"}
+                {"Attribute": "Chemical Code", "Details": resn},
+                {"Attribute": "Chain ID", "Details": chain},
+                {"Attribute": "Residue Number", "Details": resi},
+                {"Attribute": "Type", "Details": "Co-crystallized Heteroatom / Inhibitor"}
             ])
             st.dataframe(meta_df, use_container_width=True, hide_index=True)
+            
+            rcsb_link = f"https://www.rcsb.org/ligand/{resn}"
+            st.markdown(f"🔗 **External Reference:** [View Chemical Card on RCSB]({rcsb_link})")
 
-            st.markdown("#### 🔗 External Cross-References")
-            rcsb_url = f"https://www.rcsb.org/ligand/{resn}"
-            st.markdown(f"- [View Chemical Geometry on RCSB Ligand Summary]({rcsb_url})")
-
-        with col_details:
-            st.markdown("#### 🛡️ Binding Pocket Interacting Residues")
+        with col_pocket:
+            st.markdown("#### 🔬 Binding Pocket Contact Matrix")
             pocket_data = get_detailed_pocket_contacts(pdb_data, resi, chain)
 
             if pocket_data:
                 pocket_df = pd.DataFrame(pocket_data).drop_duplicates(subset=["Position"])
-                st.dataframe(pocket_df, use_container_width=True, height=280, hide_index=True)
+                st.dataframe(pocket_df, use_container_width=True, height=260, hide_index=True)
             else:
-                st.info("Detailed contact profiling mapped local spatial coordinates.")
+                st.info("Mapped local sequence spatial neighborhood.")
 
         st.markdown("---")
-        st.markdown("#### 💡 Structural Interaction Summary")
-        st.info(
-            f"The ligand **{resn}** at position **{resi}** on chain **{chain}** forms a stable microenvironment "
-            f"within the protein core, stabilized by surrounding amino acid residues listed in the binding pocket matrix."
-        )
+        st.info(f"💡 **Analysis Summary:** The binding pocket for **{resn}** (Position {resi}, Chain {chain}) shows close non-covalent proximity to the neighboring amino acids listed in the contact matrix above.")

@@ -42,6 +42,7 @@ from viewer.structure_viewer import (
 )
 from views.comparison_workspace import render_comparison
 from views.ligand_view import render_ligand_analysis_tab
+from views.protein_atlas_view import render_protein_atlas_tab
 
 
 # ============================================================
@@ -171,7 +172,7 @@ def show_protein(protein_query: str) -> None:
         _render_disorder_tab(protein)
 
     with tabs[13]:
-        _render_hpa_tab(protein)
+        render_protein_atlas_tab(protein)
 
     with tabs[14]:
         _render_comparison_tab(
@@ -994,40 +995,6 @@ def _render_disorder_tab(protein: dict) -> None:
         end = r.get("End", r.get("end", "?"))
         state = r.get("State", r.get("term", r.get("name", "Disordered region")))
         st.markdown(f"**Residues {start}–{end}**: {state}")
-
-
-# ============================================================
-# HUMAN PROTEIN ATLAS TAB
-# ============================================================
-
-def _render_hpa_tab(protein: dict) -> None:
-    st.markdown(
-        '<div class="section-title">Human Protein Atlas & Expression Profiling</div>',
-        unsafe_allow_html=True,
-    )
-    
-    gene_symbol = protein.get("gene", "").split(",")[0].strip()
-    if not gene_symbol:
-        st.info("No valid gene symbol available.")
-        return
-        
-    with st.spinner(f"Fetching expression and pathology profiles for {gene_symbol}..."):
-        hpa_info = get_hpa_data(gene_symbol)
-    
-    if not hpa_info:
-        st.warning(f"No records found for '{gene_symbol}'.")
-        return
-        
-    st.success(f"Successfully loaded expression profile for {gene_symbol}.")
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("### 🧬 Tissue Expression Profile")
-        st.info(hpa_info.get("Tissues", "Data unavailable."))
-
-    with c2:
-        st.markdown("### ⚠️ Pathology & Disease Associations")
-        st.warning(hpa_info.get("Pathology", "Data unavailable."))
 
 
 # ============================================================

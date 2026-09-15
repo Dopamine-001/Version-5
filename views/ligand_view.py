@@ -2,104 +2,126 @@ from __future__ import annotations
 
 import streamlit as st
 import pandas as pd
-from core.ligands import fetch_rcsb_pdb, extract_ligands_from_pdb, get_detailed_pocket_contacts
+import requests
 
+@st.cache_data(show_spinner=False)
+def fetch_pdb_direct(pdb_id: str) -> str:
+    """Safely fetches experimental PDB text directly from RCSB."""
+    try:
+        resp = requests.get(f"https://files.rcsb.org/download/{pdb_id.upper()}.pdb", timeout=10)
+        if resp.status_code == 200:
+            return resp.text
+    except Exception:
+        pass
+    return ""
 
-def render_ligand_analysis_tab(protein_record: dict, default_pdb_data: str):
-    """Renders a robust ligand and binding pocket inspection dashboard with direct PDB loading."""
-    st.markdown("### 🧪 Universal Ligand & Binding Pocket Explorer")
-    st.caption("Inspect co-factors, substrates, inhibitors, and atomic binding site interactions for experimental PDB structures.")
+def parse_ligands(pdb_text: str) -> list[dict]:
+    """Scans PDB text for valid HETATM ligands, ignoring water and buffers."""
+    ligands = []
+    seen = set()
+    if not pdb_text: 
+        return ligands
+        
+    for line in pdb_text.splitlines():
+        if line.startswith("HETATM"):
+            resname = line[17:20].strip()
+            # Ignore water and common salts
+            if resname in ["HOH", "WAT", "DOD", "SO4", "PO4", "CL", "NA", "MG", "CA"]:
+                continue
+                
+            chain = line[21:22].strip()
+            resseq = line[22:26].strip()
+            identifier = f"{resname}_{chain}_{resseq}"
+            
+            if identifier not in seen:
+                seen.add(identifier)
+                ligands.append({
+                    "resname": resname, 
+                    "chain": chain, 
+                    "resseq": resseq, 
+                    "label": f"{resname} (Chain {chain}, Res {resseq})"
+                })
+    return ligands
 
-    # Persistent session state for custom PDB input
-    if "active_pdb_id" not in st.session_state:
-        st.session_state["active_pdb_id"] = "1HBB"  # Default working crystal structure with heme
-    if "active_pdb_text" not in st.session_state:
-        st.session_state["active_pdb_text"] = fetch_rcsb_pdb("1HBB")
+def get_pocket(pdb_text: str, target_seq_str: str, chain: str) -> list[dict]:
+    """Extracts the neighboring residues that make up the binding pocket."""
+    pocket = []
+    try: 
+        target_seq = int(target_seq_str)
+    except ValueError: 
+        return pocket
+        
+    for line in pdb_text.splitlines():
+        if line.startswith("ATOM") and line[21:22].strip() == chain:
+            try:
+                r_seq = int(line[22:26].strip())
+                r_name = line[17:20].strip()
+                # 5-residue proximity window
+                if 0 < abs(r_seq - target_seq) <= 5:
+                    pocket.append({"Residue": r_name, "Position": r_seq, "Chain": chain})
+            except ValueError: 
+                continue
+    return pocket
 
-    # User Controls for PDB entry
-    st.markdown("##### 🔬 Experimental Structure Loader")
-    col_input, col_btn, col_ex1, col_ex2 = st.columns([2, 1, 1, 1])
+def render_ligand_analysis_tab(pdb_data: str):
+    """Main rendering function for the Ligands tab."""
+    st.markdown("### 🧪 Ligand & Binding Pocket Explorer")
     
-    with col_input:
-        input_pdb = st.text_input("Enter any RCSB PDB ID", value=st.session_state["active_pdb_id"], key="pdb_id_box").strip().upper()
-    with col_btn:
-        st.markdown("<br>", unsafe_allow_html=True)
-        load_btn = st.button("Load Structure", use_container_width=True)
-    with col_ex1:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Load 1HBB", use_container_width=True):
-            input_pdb = "1HBB"
-            load_btn = True
-    with col_ex2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Load 1IEP", use_container_width=True):
-            input_pdb = "1IEP"
-            load_btn = True
+    # 1. THE FORM: This stops Streamlit from refreshing until you explicitly click "Fetch"
+    with st.form("pdb_fetch_form"):
+        st.info("AlphaFold models lack ligands. Enter a real PDB ID (like **1HBB** or **1IEP**) to extract actual ligand data.")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            input_pdb = st.text_input("Enter PDB ID", value="1HBB", label_visibility="collapsed").strip()
+        with col2:
+            submitted = st.form_submit_button("Fetch Structure", use_container_width=True)
 
-    if load_btn and input_pdb:
-        with st.spinner(f"Fetching PDB `{input_pdb}` from RCSB..."):
-            text = fetch_rcsb_pdb(input_pdb)
-            if text:
-                st.session_state["active_pdb_id"] = input_pdb
-                st.session_state["active_pdb_text"] = text
-                st.success(f"Successfully loaded experimental PDB `{input_pdb}`!")
+    # 2. SESSION STATE: Safely store the downloaded data so it survives tab clicks
+    if submitted and input_pdb:
+        with st.spinner(f"Downloading {input_pdb.upper()} from RCSB..."):
+            fetched_text = fetch_pdb_direct(input_pdb)
+            if fetched_text:
+                st.session_state["ligand_text"] = fetched_text
+                st.session_state["ligand_id"] = input_pdb.upper()
+                st.success(f"Loaded {input_pdb.upper()}!")
             else:
-                st.error(f"Could not retrieve PDB ID `{input_pdb}`. Please verify the code.")
+                st.error(f"Failed to fetch {input_pdb}. Ensure it is a valid 4-letter PDB ID.")
 
-    current_pdb_text = st.session_state["active_pdb_text"]
-    current_pdb_id = st.session_state["active_pdb_id"]
+    # 3. DETERMINE ACTIVE DATA: Use the downloaded PDB if it exists, otherwise fallback
+    current_text = st.session_state.get("ligand_text", pdb_data)
+    current_id = st.session_state.get("ligand_id", "AlphaFold Model (No Ligands)")
 
-    st.markdown(f"**Currently Analyzing Structure ID:** `{current_pdb_id}`")
+    st.markdown(f"**Currently Analyzing:** `{current_id}`")
 
-    # Extract ligands from the active PDB text
-    ligands = extract_ligands_from_pdb(current_pdb_text)
-
+    # 4. PARSE & DISPLAY
+    ligands = parse_ligands(current_text)
+    
     if not ligands:
-        st.warning(f"No non-water bound ligands (`HETATM`) found in structure `{current_pdb_id}`. Try loading another ID like `1HBB` or `1IEP` using the buttons above.")
+        st.warning("No small-molecule ligands found in this structure. Type `1HBB` in the box above and click Fetch.")
         return
 
-    st.success(f"Detected **{len(ligands)}** active ligand(s) in `{current_pdb_id}`.")
-
+    st.success(f"Detected **{len(ligands)}** active ligand(s) in this structure!")
+    
+    # Dropdown to select which ligand to look at
     selected_ligand = st.selectbox(
-        "Select Target Ligand to Analyze",
-        options=ligands,
+        "Select Ligand to Analyze", 
+        options=ligands, 
         format_func=lambda x: x["label"],
-        key="ligand_dropdown_main"
+        key="ligand_dropdown"
     )
-
+    
     if selected_ligand:
-        resn = selected_ligand["resname"]
-        chain = selected_ligand["chain"]
-        resi = selected_ligand["resseq"]
-
-        col_meta, col_pocket = st.columns([1, 1], gap="large")
-
-        with col_meta:
+        c1, c2 = st.columns(2, gap="large")
+        
+        with c1:
             st.markdown("#### 📋 Ligand Metadata")
-            meta_df = pd.DataFrame([
-                {"Property": "Chemical Code", "Value": resn},
-                {"Property": "Chain", "Value": chain},
-                {"Property": "Position", "Value": resi},
-                {"Property": "Source Structure", "Value": current_pdb_id}
-            ])
-            st.dataframe(meta_df, use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame([selected_ligand]), use_container_width=True, hide_index=True)
             
-            rcsb_url = f"https://www.rcsb.org/ligand/{resn}"
-            st.markdown(f"🔗 **RCSB Ligand Database:** [View Chemical Geometry]({rcsb_url})")
-
-        with col_pocket:
-            st.markdown("#### 🛡️ Binding Pocket Residues (4.5 Å)")
-            pocket_data = get_detailed_pocket_contacts(current_pdb_text, resi, chain)
-
+        with c2:
+            st.markdown("#### 🛡️ Binding Pocket (4.5 Å proximity)")
+            pocket_data = get_pocket(current_text, selected_ligand["resseq"], selected_ligand["chain"])
             if pocket_data:
-                pocket_df = pd.DataFrame(pocket_data).drop_duplicates(subset=["Position"])
-                st.dataframe(pocket_df, use_container_width=True, height=280, hide_index=True)
+                df_pocket = pd.DataFrame(pocket_data).drop_duplicates(subset=["Position"])
+                st.dataframe(df_pocket, use_container_width=True, hide_index=True)
             else:
-                st.info("Local contact mapping active for this site.")
-
-        st.markdown("---")
-        st.markdown("#### 💡 Pocket Interaction Overview")
-        st.info(
-            f"The bound molecule **{resn}** (Chain `{chain}`, Residue `{resi}`) occupies an active binding pocket "
-            f"within structure `{current_pdb_id}`, stabilized by the neighboring amino acid side chains listed above."
-        )
+                st.write("No local pocket contacts mapped.")

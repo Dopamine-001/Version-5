@@ -2,69 +2,69 @@ from __future__ import annotations
 
 import streamlit as st
 import pandas as pd
-from core.ligands import (
-    get_ligand_containing_pdb, 
-    fetch_rcsb_pdb, 
-    extract_ligands_from_pdb, 
-    get_detailed_pocket_contacts
-)
+from core.ligands import fetch_rcsb_pdb, extract_ligands_from_pdb, get_detailed_pocket_contacts
 
 
 def render_ligand_analysis_tab(protein_record: dict, default_pdb_data: str):
-    """Renders the automated ligand and binding pocket explorer for any protein."""
+    """Renders a robust ligand and binding pocket inspection dashboard with direct PDB loading."""
     st.markdown("### 🧪 Universal Ligand & Binding Pocket Explorer")
-    st.caption("Automatically retrieves experimental crystal structures containing bound co-factors, inhibitors, or substrates.")
+    st.caption("Inspect co-factors, substrates, inhibitors, and atomic binding site interactions for experimental PDB structures.")
 
-    accession = protein_record.get("accession", "")
+    # Persistent session state for custom PDB input
+    if "active_pdb_id" not in st.session_state:
+        st.session_state["active_pdb_id"] = "1HBB"  # Default working crystal structure with heme
+    if "active_pdb_text" not in st.session_state:
+        st.session_state["active_pdb_text"] = fetch_rcsb_pdb("1HBB")
+
+    # User Controls for PDB entry
+    st.markdown("##### 🔬 Experimental Structure Loader")
+    col_input, col_btn, col_ex1, col_ex2 = st.columns([2, 1, 1, 1])
     
-    # Session state to cache the fetched experimental structure per protein
-    cache_key = f"ligand_pdb_cache_{accession}"
-    
-    if cache_key not in st.session_state:
-        with st.spinner("Searching PDB database for experimental structures with bound ligands..."):
-            pdb_id, pdb_text = get_ligand_containing_pdb(accession)
-            st.session_state[cache_key] = {"id": pdb_id, "text": pdb_text}
+    with col_input:
+        input_pdb = st.text_input("Enter any RCSB PDB ID", value=st.session_state["active_pdb_id"], key="pdb_id_box").strip().upper()
+    with col_btn:
+        st.markdown("<br>", unsafe_allow_html=True)
+        load_btn = st.button("Load Structure", use_container_width=True)
+    with col_ex1:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Load 1HBB", use_container_width=True):
+            input_pdb = "1HBB"
+            load_btn = True
+    with col_ex2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Load 1IEP", use_container_width=True):
+            input_pdb = "1IEP"
+            load_btn = True
 
-    cached = st.session_state[cache_key]
-    active_pdb_id = cached["id"]
-    active_pdb_text = cached["text"]
-
-    # Allow manual override if needed
-    col_info, col_man = st.columns([2, 1])
-    with col_info:
-        st.markdown(f"**Auto-Detected Structure:** `{active_pdb_id if active_pdb_id else 'None found via API'}`")
-    with col_man:
-        manual_override = st.text_input("Override PDB ID", placeholder="e.g. 1HBB", key=f"override_{accession}").strip().upper()
-
-    if manual_override:
-        with st.spinner(f"Fetching PDB `{manual_override}`..."):
-            forced_text = fetch_rcsb_pdb(manual_override)
-            if forced_text:
-                active_pdb_text = forced_text
-                active_pdb_id = manual_override
-                st.success(f"Loaded structure `{manual_override}` successfully!")
+    if load_btn and input_pdb:
+        with st.spinner(f"Fetching PDB `{input_pdb}` from RCSB..."):
+            text = fetch_rcsb_pdb(input_pdb)
+            if text:
+                st.session_state["active_pdb_id"] = input_pdb
+                st.session_state["active_pdb_text"] = text
+                st.success(f"Successfully loaded experimental PDB `{input_pdb}`!")
             else:
-                st.error(f"Could not load `{manual_override}`.")
+                st.error(f"Could not retrieve PDB ID `{input_pdb}`. Please verify the code.")
 
-    # Fallback to default if nothing found
-    target_data = active_pdb_text if active_pdb_text else default_pdb_data
+    current_pdb_text = st.session_state["active_pdb_text"]
+    current_pdb_id = st.session_state["active_pdb_id"]
 
-    ligands = extract_ligands_from_pdb(target_data)
+    st.markdown(f"**Currently Analyzing Structure ID:** `{current_pdb_id}`")
+
+    # Extract ligands from the active PDB text
+    ligands = extract_ligands_from_pdb(current_pdb_text)
 
     if not ligands:
-        st.warning(
-            "No experimental crystal structure with bound ligands (`HETATM`) could be automatically linked to this protein entry. "
-            "You can manually type a known PDB ID containing ligands (such as **1HBB** for hemoglobin or **1IEP** for a kinase inhibitor) into the override box above."
-        )
+        st.warning(f"No non-water bound ligands (`HETATM`) found in structure `{current_pdb_id}`. Try loading another ID like `1HBB` or `1IEP` using the buttons above.")
         return
 
-    st.success(f"Successfully detected **{len(ligands)}** bound ligand(s) from structure `{active_pdb_id or 'Custom'}`.")
+    st.success(f"Detected **{len(ligands)}** active ligand(s) in `{current_pdb_id}`.")
 
     selected_ligand = st.selectbox(
         "Select Target Ligand to Analyze",
         options=ligands,
         format_func=lambda x: x["label"],
-        key=f"lig_select_{accession}"
+        key="ligand_dropdown_main"
     )
 
     if selected_ligand:
@@ -80,26 +80,26 @@ def render_ligand_analysis_tab(protein_record: dict, default_pdb_data: str):
                 {"Property": "Chemical Code", "Value": resn},
                 {"Property": "Chain", "Value": chain},
                 {"Property": "Position", "Value": resi},
-                {"Property": "Source PDB", "Value": active_pdb_id or "Custom"}
+                {"Property": "Source Structure", "Value": current_pdb_id}
             ])
             st.dataframe(meta_df, use_container_width=True, hide_index=True)
             
             rcsb_url = f"https://www.rcsb.org/ligand/{resn}"
-            st.markdown(f"🔗 **RCSB Database:** [View Chemical Geometry]({rcsb_url})")
+            st.markdown(f"🔗 **RCSB Ligand Database:** [View Chemical Geometry]({rcsb_url})")
 
         with col_pocket:
             st.markdown("#### 🛡️ Binding Pocket Residues (4.5 Å)")
-            pocket_data = get_detailed_pocket_contacts(target_data, resi, chain)
+            pocket_data = get_detailed_pocket_contacts(current_pdb_text, resi, chain)
 
             if pocket_data:
                 pocket_df = pd.DataFrame(pocket_data).drop_duplicates(subset=["Position"])
-                st.dataframe(pocket_df, use_container_width=True, height=260, hide_index=True)
+                st.dataframe(pocket_df, use_container_width=True, height=280, hide_index=True)
             else:
-                st.info("Local contact mapping active.")
+                st.info("Local contact mapping active for this site.")
 
         st.markdown("---")
         st.markdown("#### 💡 Pocket Interaction Overview")
         st.info(
-            f"The bound molecule **{resn}** (Chain `{chain}`, Residue `{resi}`) interacts with the protein core "
-            f"via the non-covalent contact residues listed in the table above."
+            f"The bound molecule **{resn}** (Chain `{chain}`, Residue `{resi}`) occupies an active binding pocket "
+            f"within structure `{current_pdb_id}`, stabilized by the neighboring amino acid side chains listed above."
         )

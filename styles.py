@@ -1,62 +1,50 @@
 """
-Refined Molecular Dark Theme for Protein Explorer.
-Precision typography, clean border hierarchy, and mobile-first responsiveness.
+Biological & Life-Sciences Theme for Protein Explorer.
+Inspired by modern biotech platforms (Benchling, RCSB PDB, UniProt).
 """
 
 import streamlit as st
 
-CUSTOM_CSS = """
+BIOLOGICAL_CSS = """
 <style>
 /* =========================================================
-   1. FONTS & ROOT DESIGN TOKENS
+   1. FONTS & ORGANIC DESIGN TOKENS
    ========================================================= */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-    --bg-base: #050505;
-    --bg-card: #0b0b0b;
-    --bg-input: #0d0d0d;
-    --border-subtle: #222222;
-    --border-active: #7ee7d8;
-    --text-primary: #f5f5f5;
-    --text-secondary: #a0a0a0;
-    --text-muted: #666666;
-    --accent-teal: #7ee7d8;
-    --accent-blue: #38bdf8;
+    --bg-canvas: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-sidebar: #f1f5f9;
+    --border-light: #e2e8f0;
+    --border-strong: #cbd5e1;
+    
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    
+    /* Biological Accent Colors */
+    --bio-green: #15803d;
+    --bio-green-light: #f0fdf4;
+    --bio-green-border: #bbf7d0;
+    
+    --bio-teal: #0f766e;
+    --bio-teal-light: #ccfbf1;
+    
+    --bio-amber: #b45309;
+    --bio-amber-light: #fef3c7;
+    
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
 }
 
 /* =========================================================
-   2. GLOBAL CANVAS & BACKGROUND
+   2. GLOBAL CANVAS RESET (CLEAN LIGHT/SLATE BIOLOGY)
    ========================================================= */
 html, body, [data-testid="stAppViewContainer"] {
     font-family: var(--font-sans) !important;
-    background:
-        radial-gradient(circle at 15% 10%, rgba(126, 231, 216, 0.04), transparent 28%),
-        radial-gradient(circle at 85% 15%, rgba(56, 189, 248, 0.03), transparent 25%),
-        var(--bg-base) !important;
+    background-color: var(--bg-canvas) !important;
     color: var(--text-primary) !important;
-    min-height: 100vh;
-}
-
-/* Grid overlay background */
-.stApp::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background-image:
-        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-    background-size: 36px 36px;
-    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
-}
-
-.stApp > * {
-    position: relative;
-    z-index: 1;
 }
 
 #MainMenu, header, footer {
@@ -65,18 +53,19 @@ html, body, [data-testid="stAppViewContainer"] {
 }
 
 .block-container {
-    max-width: 1440px;
-    padding-top: 2rem;
-    padding-bottom: 4rem;
+    max-width: 1400px;
+    padding-top: 1.75rem;
+    padding-bottom: 3rem;
 }
 
 /* =========================================================
-   3. TYPOGRAPHY & HEADINGS
+   3. TYPOGRAPHY
    ========================================================= */
 h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-sans) !important;
     color: var(--text-primary) !important;
-    letter-spacing: -0.025em;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em;
 }
 
 p, label, span {
@@ -88,143 +77,159 @@ code, pre, .mono-text {
 }
 
 /* =========================================================
-   4. HERO BANNER
+   4. BIOLOGICAL HERO / WORKSPACE HEADER
    ========================================================= */
 .hero {
-    position: relative;
-    padding: 2.2rem 2.5rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-light);
+    border-left: 4px solid var(--bio-green);
+    border-radius: 8px;
+    padding: 1.75rem 2rem;
     margin-bottom: 1.5rem;
-    background:
-        radial-gradient(circle at 90% 20%, rgba(126, 231, 216, 0.06), transparent 40%),
-        linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.003));
-    border: 1px solid var(--border-subtle);
-    border-radius: 16px;
-    overflow: hidden;
-}
-
-.hero::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--accent-teal), transparent);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .kicker {
-    color: var(--accent-teal) !important;
+    color: var(--bio-green) !important;
     font-family: var(--font-mono);
     font-size: 0.72rem;
     font-weight: 600;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.3rem;
 }
 
 .hero-title {
     color: var(--text-primary) !important;
-    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-size: 1.85rem;
     font-weight: 700;
-    line-height: 1.1;
-    letter-spacing: -0.03em;
-    margin: 0.2rem 0 0.6rem;
+    margin: 0.1rem 0 0.4rem;
 }
 
 .hero-copy {
     color: var(--text-secondary) !important;
-    font-size: 0.95rem;
-    line-height: 1.6;
-    max-width: 800px;
+    font-size: 0.925rem;
+    line-height: 1.5;
 }
 
 /* =========================================================
-   5. METRICS & CONTROL CARDS
+   5. METRICS & DATA CARDS
    ========================================================= */
 [data-testid="stMetric"] {
-    background: var(--bg-card) !important;
-    border: 1px solid var(--border-subtle) !important;
-    border-radius: 12px !important;
-    padding: 1rem 1.2rem !important;
-    transition: border-color 0.2s ease, transform 0.2s ease;
-}
-
-[data-testid="stMetric"]:hover {
-    border-color: rgba(126, 231, 216, 0.3) !important;
-    transform: translateY(-1px);
+    background: var(--bg-surface) !important;
+    border: 1px solid var(--border-light) !important;
+    border-radius: 8px !important;
+    padding: 0.85rem 1.1rem !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
 }
 
 [data-testid="stMetricLabel"] {
-    font-family: var(--font-mono) !important;
-    font-size: 0.7rem !important;
+    font-family: var(--font-sans) !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.04em;
     color: var(--text-muted) !important;
 }
 
 [data-testid="stMetricValue"] {
     font-family: var(--font-mono) !important;
-    font-size: 1.4rem !important;
+    font-size: 1.35rem !important;
     font-weight: 600 !important;
     color: var(--text-primary) !important;
 }
 
 /* =========================================================
-   6. INPUTS & TACTILE BUTTONS
+   6. BIOLOGICAL STATUS PILLS & BADGES
+   ========================================================= */
+.bio-badge {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 4px;
+    margin-right: 0.4rem;
+}
+
+.bio-badge-green {
+    background-color: var(--bio-green-light);
+    color: var(--bio-green);
+    border: 1px solid var(--bio-green-border);
+}
+
+.bio-badge-teal {
+    background-color: var(--bio-teal-light);
+    color: var(--bio-teal);
+    border: 1px solid #99f6e4;
+}
+
+/* =========================================================
+   7. INPUT CONTROLS & TACTILE BUTTONS
    ========================================================= */
 .stTextInput input, .stTextArea textarea {
-    background: var(--bg-input) !important;
+    background: var(--bg-surface) !important;
     color: var(--text-primary) !important;
-    border: 1px solid var(--border-subtle) !important;
-    border-radius: 8px !important;
+    border: 1px solid var(--border-strong) !important;
+    border-radius: 6px !important;
     font-family: var(--font-mono) !important;
     font-size: 0.9rem !important;
 }
 
 .stTextInput input:focus, .stTextArea textarea:focus {
-    border-color: var(--accent-teal) !important;
-    box-shadow: 0 0 0 1px rgba(126, 231, 216, 0.2) !important;
+    border-color: var(--bio-green) !important;
+    box-shadow: 0 0 0 2px rgba(21, 128, 61, 0.15) !important;
 }
 
 .stButton > button {
-    background: linear-gradient(180deg, #161616 0%, #0d0d0d 100%) !important;
+    background-color: var(--bg-surface) !important;
     color: var(--text-primary) !important;
-    border: 1px solid #2a2a2a !important;
-    border-radius: 8px !important;
+    border: 1px solid var(--border-strong) !important;
+    border-radius: 6px !important;
     font-family: var(--font-sans) !important;
     font-weight: 600 !important;
-    font-size: 0.875rem !important;
-    padding: 0.5rem 1.2rem !important;
+    font-size: 0.85rem !important;
+    padding: 0.4rem 1rem !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
     transition: all 0.15s ease !important;
 }
 
 .stButton > button:hover {
-    border-color: var(--accent-teal) !important;
-    color: var(--accent-teal) !important;
-    transform: translateY(-1px);
+    border-color: var(--bio-green) !important;
+    color: var(--bio-green) !important;
+    background-color: var(--bio-green-light) !important;
 }
 
 .stButton > button[kind="primary"] {
-    background: var(--accent-teal) !important;
-    color: #050505 !important;
-    border: none !important;
+    background-color: var(--bio-green) !important;
+    color: #ffffff !important;
+    border: 1px solid var(--bio-green) !important;
 }
 
 .stButton > button[kind="primary"]:hover {
-    background: #62d4c3 !important;
-    color: #050505 !important;
+    background-color: #166534 !important;
+    color: #ffffff !important;
 }
 
 /* =========================================================
-   7. SIDEBAR & NAVIGATION
+   8. SIDEBAR
    ========================================================= */
 [data-testid="stSidebar"] {
-    background: var(--bg-base) !important;
-    border-right: 1px solid var(--border-subtle) !important;
+    background-color: var(--bg-sidebar) !important;
+    border-right: 1px solid var(--border-light) !important;
 }
 
 /* =========================================================
-   8. MOBILE RESPONSIVE
+   9. DATAFRAMES & TABLES
+   ========================================================= */
+[data-testid="stDataFrame"], [data-testid="stTable"] {
+    background-color: var(--bg-surface) !important;
+    border: 1px solid var(--border-light) !important;
+    border-radius: 6px !important;
+}
+
+/* =========================================================
+   10. MOBILE RESPONSIVE
    ========================================================= */
 @media screen and (max-width: 768px) {
     .block-container {
@@ -236,11 +241,11 @@ code, pre, .mono-text {
     [data-testid="column"] {
         width: 100% !important;
         flex: 1 1 100% !important;
-        margin-bottom: 0.75rem;
+        margin-bottom: 0.5rem;
     }
 
     .hero-title {
-        font-size: 1.8rem !important;
+        font-size: 1.4rem !important;
     }
 
     .stButton > button {
@@ -251,4 +256,4 @@ code, pre, .mono-text {
 """
 
 def inject_css() -> None:
-    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+    st.markdown(BIOLOGICAL_CSS, unsafe_allow_html=True)

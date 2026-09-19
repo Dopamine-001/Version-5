@@ -200,46 +200,56 @@ def _render_header(protein: dict, properties: dict, plddt) -> None:
     )
     st.markdown(hero_html, unsafe_allow_html=True)
 
+    # Tuple structure: (Label, Value, Subtitle, Is_Predicted)
+    # is_predicted=False renders in blue (measured/curated)
+    # is_predicted=True renders in amber (computed/predicted)
     metrics = [
         (
             "Length",
             f"{protein['length']} aa",
             "UniProt sequence",
+            False
         ),
         (
             "Molecular weight",
             f"{properties['molecular_weight'] / 1000:.2f} kDa",
-            "calculated",
+            "sequence-derived",
+            False
         ),
         (
             "Theoretical pI",
             f"{properties['pI']:.2f}",
-            "calculated",
+            "computed",
+            True
         ),
         (
             "GRAVY",
             f"{properties['gravy']:.2f}",
             "Kyte-Doolittle",
+            True
         ),
         (
             "Instability",
             f"{properties['instability']:.1f}",
             "ProtParam index",
+            True
         ),
         (
             "Mean pLDDT",
             f"{plddt:.1f}" if plddt is not None else "N/A",
-            "AlphaFold",
+            "AlphaFold prediction",
+            True
         ),
     ]
 
     cols = st.columns(len(metrics))
 
-    for col, (label, value, sub) in zip(cols, metrics):
+    for col, (label, value, sub, is_predicted) in zip(cols, metrics):
+        predicted_class = " predicted" if is_predicted else ""
         with col:
             metric_html = (
-                f'<div class="metric-card">'
-                f'<div class="metric-label">{esc(label)}</div>'
+                f'<div class="metric-card{predicted_class}">'
+                f'<span class="metric-label">{esc(label)}</span>'
                 f'<div class="metric-value">{esc(value)}</div>'
                 f'<div class="metric-sub">{esc(sub)}</div>'
                 f'</div>'

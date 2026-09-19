@@ -11,6 +11,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
+import plot_theme as pt
 from analysis.sequence import hydrophobicity_table, sequence_properties
 from analysis.structure import (
     calculate_ramachandran_angles,
@@ -161,7 +162,8 @@ def show_protein(protein_query: str) -> None:
         st.markdown('<div class="section-title">Structural Contact Map (Cα Distance Matrix)</div>', unsafe_allow_html=True)
         st.caption("Visualizes physical 3D distances between amino acid pairs to highlight tertiary folding domains and interaction interfaces.")
         if pdb_text:
-            st.plotly_chart(contact_map_figure(pdb_text), use_container_width=True)
+            fig_cm = contact_map_figure(pdb_text)
+            st.plotly_chart(pt.style(fig_cm), use_container_width=True)
         else:
             st.info("No structure available for contact map generation.")
 
@@ -200,9 +202,6 @@ def _render_header(protein: dict, properties: dict, plddt) -> None:
     )
     st.markdown(hero_html, unsafe_allow_html=True)
 
-    # Tuple structure: (Label, Value, Subtitle, Is_Predicted)
-    # is_predicted=False renders in blue (measured/curated)
-    # is_predicted=True renders in amber (computed/predicted)
     metrics = [
         (
             "Length",
@@ -413,8 +412,9 @@ def _render_overview_tab(
     c1, c2 = st.columns([1.3, 1])
 
     with c1:
+        fig_comp = composition_figure(sequence)
         st.plotly_chart(
-            composition_figure(sequence),
+            pt.style(fig_comp),
             use_container_width=True,
         )
 
@@ -846,11 +846,9 @@ def _render_hydrophobicity_tab(
         key=f"hydro_{protein['accession']}",
     )
 
+    fig_hydro = hydrophobicity_figure(sequence, window)
     st.plotly_chart(
-        hydrophobicity_figure(
-            sequence,
-            window,
-        ),
+        pt.style(fig_hydro),
         use_container_width=True,
     )
 
@@ -959,7 +957,7 @@ def _render_ramachandran_tab(pdb_text) -> None:
         phi, psi, residue_numbers = calculate_ramachandran_angles(pdb_text)
         if phi:
             st.plotly_chart(
-                ramachandran_figure(phi, psi, residue_numbers),
+                pt.ramachandran(phi, psi),
                 use_container_width=True,
             )
 

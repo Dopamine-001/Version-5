@@ -33,6 +33,7 @@ st.set_page_config(
 init_db()
 
 load_aesthetic_theme()
+# Inject CSS last so its background rules take top priority
 inject_css()
 
 # If you capture search queries in session state or user input, log them here:

@@ -1,176 +1,205 @@
 """
-Vibrant Molecular Theme for Protein Explorer.
-Features a proper nucleotide/carbon ring background and forces clean white data cards.
+Vibrant Biological & Chemical Theme for Protein Explorer.
+Overrides custom HTML classes to force clean, readable, scientific UI.
 """
 
 import streamlit as st
 
-VIBRANT_BIO_CSS = """
+CUSTOM_CSS = """
 <style>
 /* =========================================================
-   1. FONTS & VIBRANT DESIGN TOKENS
+   1. FONTS & THEME TOKENS
    ========================================================= */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap');
 
 :root {
-    --text-main: #0f172a !important;
-    --text-muted: #475569 !important;
-    --text-light: #64748b !important;
-    
-    --bio-cyan: #0ea5e9 !important;
-    --bio-emerald: #10b981 !important;
-    
-    --card-bg: #ffffff !important;
-    --card-border: #e2e8f0 !important;
+    --bg-color: #f4f7f9;
+    --card-bg: #ffffff;
+    --text-main: #0f172a;
+    --text-muted: #475569;
+    --accent-teal: #0d9488;
+    --accent-emerald: #059669;
+    --accent-blue: #0284c7;
+    --border-color: #cbd5e1;
 }
 
 /* =========================================================
-   2. MOLECULAR NUCLEOTIDE CANVAS
+   2. CHEMICAL RING LATTICE BACKGROUND
    ========================================================= */
 html, body, [data-testid="stAppViewContainer"], .stApp {
-    font-family: 'Inter', sans-serif !important;
-    color: var(--text-main) !important;
-    background-color: #f8fafc !important;
+    background-color: var(--bg-color) !important;
     
-    /* Authentic molecular ring lattice representing nucleotide bases */
+    /* Authentic, subtle hexagonal chemical ring pattern */
     background-image: 
-        radial-gradient(circle at 15% 50%, rgba(14, 165, 233, 0.08), transparent 50%),
-        radial-gradient(circle at 85% 20%, rgba(16, 185, 129, 0.08), transparent 50%),
-        url("data:image/svg+xml,%3Csvg width='60' height='103.923' viewBox='0 0 60 103.923' xmlns='http://www.w3.org/2000/svg'%3E%3Cg stroke='%230ea5e9' stroke-width='1.5' stroke-opacity='0.12' fill='none'%3E%3Cpath d='M30 17.32L60 0v34.64L30 51.96 0 34.64V0l30 17.32zM30 69.28L60 51.96v34.64L30 103.92 0 86.6V51.96l30 17.32z'/%3E%3C/g%3E%3C/svg%3E") !important;
+        radial-gradient(circle at 15% 50%, rgba(13, 148, 136, 0.05), transparent 60%),
+        radial-gradient(circle at 85% 20%, rgba(5, 150, 105, 0.05), transparent 60%),
+        url("data:image/svg+xml,%3Csvg width='60' height='103.923' viewBox='0 0 60 103.923' xmlns='http://www.w3.org/2000/svg'%3E%3Cg stroke='%2394a3b8' stroke-width='1' stroke-opacity='0.25' fill='none'%3E%3Cpath d='M30 17.32L60 0v34.64L30 51.96 0 34.64V0l30 17.32zM30 69.28L60 51.96v34.64L30 103.92 0 86.6V51.96l30 17.32z'/%3E%3C/g%3E%3C/svg%3E") !important;
     background-size: 100% 100%, 100% 100%, 60px 104px !important;
     background-attachment: fixed !important;
+    
+    font-family: 'Inter', sans-serif !important;
+    color: var(--text-main) !important;
 }
 
 #MainMenu, header, footer { visibility: hidden; display: none; }
 
 .block-container {
     max-width: 1400px;
-    padding-top: 2.5rem;
+    padding-top: 2rem;
     padding-bottom: 4rem;
 }
 
 /* =========================================================
-   3. NUKE THE SCI-FI FONT
+   3. FORCE CLEAN SCIENTIFIC TYPOGRAPHY (KILL THE SCI-FI FONT)
    ========================================================= */
 * {
     font-family: 'Inter', sans-serif;
 }
-
-h1, h2, h3, h4, h5, h6, .hero-title, .section-title {
-    font-family: 'Inter', sans-serif !important;
-    font-weight: 800 !important;
-    letter-spacing: -0.03em !important;
-    color: var(--text-main) !important;
-}
-
-p, label, span, .hero-copy {
-    font-family: 'Inter', sans-serif !important;
-    color: var(--text-muted) !important;
+code, pre, .mono-text {
+    font-family: 'Fira Code', monospace !important;
 }
 
 /* =========================================================
-   4. FORCE WHITE METRIC CARDS (OVERRIDE DARK BLOCKS)
-   ========================================================= */
-/* Target the outer metric wrapper, the inner container, and Streamlit's block wrapper */
-[data-testid="stMetric"], 
-[data-testid="metric-container"], 
-div[data-testid="stVerticalBlockBorderWrapper"] {
-    background-color: var(--card-bg) !important;
-    background: var(--card-bg) !important;
-    border: 1px solid var(--card-border) !important;
-    border-radius: 12px !important;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
-}
-
-/* Force left border accent on metrics only */
-[data-testid="stMetric"] {
-    border-left: 4px solid var(--bio-cyan) !important;
-    padding: 1.2rem 1.5rem !important;
-}
-
-/* Force metric text to be dark and monospace */
-[data-testid="stMetricValue"] {
-    color: var(--text-main) !important;
-}
-
-[data-testid="stMetricValue"] > div, 
-[data-testid="stMetricValue"] * {
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 2rem !important;
-    font-weight: 700 !important;
-    color: var(--text-main) !important;
-    letter-spacing: -0.05em !important;
-}
-
-[data-testid="stMetricLabel"] * {
-    font-family: 'Inter', sans-serif !important;
-    font-size: 0.75rem !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.05em !important;
-    color: var(--text-light) !important;
-}
-
-/* =========================================================
-   5. VIBRANT HERO CARD
+   4. HERO BANNER (FORCE LIGHT THEME)
    ========================================================= */
 .hero {
-    background-color: var(--card-bg) !important;
-    border: 1px solid var(--card-border) !important;
-    border-radius: 16px;
-    padding: 2.2rem 2.5rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+    background: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    padding: 2.5rem 3rem !important;
+    margin-bottom: 2rem !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04) !important;
     position: relative;
-    overflow: hidden;
 }
 
+/* Top vibrant biological accent line */
 .hero::before {
     content: "";
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 4px;
-    background: linear-gradient(90deg, var(--bio-cyan), var(--bio-emerald));
+    top: 0; left: 0; width: 100%; height: 5px;
+    background: linear-gradient(90deg, var(--accent-teal), var(--accent-emerald)) !important;
+    opacity: 1 !important;
+}
+
+/* Remove decorative text dots from original code */
+.hero::after { display: none !important; }
+
+.kicker {
+    color: var(--accent-teal) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.12em !important;
+    text-transform: uppercase !important;
+}
+
+.hero-title {
+    color: var(--text-main) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: clamp(2rem, 4vw, 2.8rem) !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.03em !important;
+    text-transform: none !important;
+    margin: 0.5rem 0 1rem !important;
+}
+
+.hero-copy {
+    color: var(--text-muted) !important;
+    font-size: 1rem !important;
 }
 
 /* =========================================================
-   6. INPUTS & VIBRANT BUTTONS
+   5. METRIC CARDS (FORCE WHITE CARDS, REMOVE DARK BLOCKS)
    ========================================================= */
-.stTextInput input, .stTextArea textarea {
-    background-color: #ffffff !important;
-    color: var(--text-main) !important;
-    border: 1px solid var(--card-border) !important;
+.metric-card {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-left: 4px solid var(--accent-teal) !important;
     border-radius: 8px !important;
-    font-family: 'JetBrains Mono', monospace !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03) !important;
+    padding: 1.25rem 1.5rem !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    min-height: auto !important;
 }
 
-.stTextInput input:focus {
-    border-color: var(--bio-cyan) !important;
-    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2) !important;
+.metric-card:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 10px 15px -3px rgba(13, 148, 136, 0.15) !important;
+    border-left-color: var(--accent-emerald) !important;
+}
+
+.metric-label {
+    color: var(--text-muted) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+}
+
+.metric-value {
+    color: var(--text-main) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 2rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.03em !important;
+    margin-top: 0.4rem !important;
+}
+
+.metric-sub {
+    color: var(--accent-blue) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.8rem !important;
+    font-weight: 500 !important;
+    margin-top: 0.4rem !important;
+}
+
+/* =========================================================
+   6. UI CONTROLS & BADGES
+   ========================================================= */
+.source-badge {
+    background: rgba(13, 148, 136, 0.1) !important;
+    color: var(--accent-teal) !important;
+    border: 1px solid rgba(13, 148, 136, 0.2) !important;
+    font-family: 'Fira Code', monospace !important;
+    font-weight: 500 !important;
+    padding: 0.3rem 0.7rem !important;
+}
+
+.section-title {
+    color: var(--text-main) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 800 !important;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0.5rem;
 }
 
 .stButton > button {
-    background: linear-gradient(135deg, var(--bio-cyan), #0284c7) !important;
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 8px !important;
+    background: var(--card-bg) !important;
+    color: var(--text-main) !important;
+    border: 1px solid var(--border-color) !important;
+    font-family: 'Inter', sans-serif !important;
     font-weight: 600 !important;
-    padding: 0.6rem 1.5rem !important;
-    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+}
+
+.stButton > button:hover {
+    border-color: var(--accent-teal) !important;
+    color: var(--accent-teal) !important;
 }
 
 /* =========================================================
-   7. DATAFRAMES & TABLES
+   7. DATAFRAMES & CONTAINERS
    ========================================================= */
-[data-testid="stDataFrame"], [data-testid="stTable"] {
-    background-color: var(--card-bg) !important;
-    border: 1px solid var(--card-border) !important;
+[data-testid="stDataFrame"], div[data-testid="stVerticalBlockBorderWrapper"] {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
     border-radius: 12px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02) !important;
 }
 </style>
 """
 
 def inject_css() -> None:
-    st.markdown(VIBRANT_BIO_CSS, unsafe_allow_html=True)
+    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)

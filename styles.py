@@ -1,517 +1,254 @@
-"""Dark molecular theme for Protein Explorer."""
+"""
+Refined Molecular Dark Theme for Protein Explorer.
+Precision typography, clean border hierarchy, and mobile-first responsiveness.
+"""
 
 import streamlit as st
 
-
 CUSTOM_CSS = """
 <style>
+/* =========================================================
+   1. FONTS & ROOT DESIGN TOKENS
+   ========================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+    --bg-base: #050505;
+    --bg-card: #0b0b0b;
+    --bg-input: #0d0d0d;
+    --border-subtle: #222222;
+    --border-active: #7ee7d8;
+    --text-primary: #f5f5f5;
+    --text-secondary: #a0a0a0;
+    --text-muted: #666666;
+    --accent-teal: #7ee7d8;
+    --accent-blue: #38bdf8;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+}
 
 /* =========================================================
-   GLOBAL MOLECULAR BACKGROUND
+   2. GLOBAL CANVAS & BACKGROUND
    ========================================================= */
-
-.stApp {
+html, body, [data-testid="stAppViewContainer"] {
+    font-family: var(--font-sans) !important;
     background:
-        radial-gradient(circle at 15% 10%, rgba(126, 231, 216, 0.055), transparent 28%),
-        radial-gradient(circle at 85% 15%, rgba(100, 150, 255, 0.045), transparent 25%),
-        radial-gradient(circle at 50% 90%, rgba(126, 231, 216, 0.035), transparent 30%),
-        #050505 !important;
-
-    color: #f5f5f5;
+        radial-gradient(circle at 15% 10%, rgba(126, 231, 216, 0.04), transparent 28%),
+        radial-gradient(circle at 85% 15%, rgba(56, 189, 248, 0.03), transparent 25%),
+        var(--bg-base) !important;
+    color: var(--text-primary) !important;
     min-height: 100vh;
 }
 
-
-/* Subtle molecular/grid texture */
-
+/* Grid overlay background */
 .stApp::before {
     content: "";
     position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 0;
-
     background-image:
-        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
-
-    background-size: 42px 42px;
-    mask-image: linear-gradient(to bottom, black, transparent 85%);
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 36px 36px;
+    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
 }
-
-
-/* Keep Streamlit content above background */
 
 .stApp > * {
     position: relative;
     z-index: 1;
 }
 
-
-/* =========================================================
-   MAIN CONTENT
-   ========================================================= */
+#MainMenu, header, footer {
+    visibility: hidden;
+    display: none;
+}
 
 .block-container {
-    max-width: 1500px;
-    padding-top: 2.5rem;
+    max-width: 1440px;
+    padding-top: 2rem;
     padding-bottom: 4rem;
 }
 
-
 /* =========================================================
-   SIDEBAR
+   3. TYPOGRAPHY & HEADINGS
    ========================================================= */
-
-[data-testid="stSidebar"] {
-    background:
-        radial-gradient(circle at 20% 10%, rgba(126,231,216,0.04), transparent 30%),
-        #070707 !important;
-
-    border-right: 1px solid #242424;
-}
-
-[data-testid="stSidebar"] * {
-    color: #f5f5f5;
-}
-
-
-/* =========================================================
-   GENERAL TEXT
-   ========================================================= */
-
 h1, h2, h3, h4, h5, h6 {
-    color: #f5f5f5 !important;
+    font-family: var(--font-sans) !important;
+    color: var(--text-primary) !important;
+    letter-spacing: -0.025em;
 }
 
-p, label {
-    color: #d0d0d0;
+p, label, span {
+    color: var(--text-secondary);
 }
 
+code, pre, .mono-text {
+    font-family: var(--font-mono) !important;
+}
 
 /* =========================================================
-   HERO
+   4. HERO BANNER
    ========================================================= */
-
 .hero {
     position: relative;
-
-    padding: 2.4rem 2.5rem 2rem;
-    margin: 0 0 1.5rem;
-
+    padding: 2.2rem 2.5rem;
+    margin-bottom: 1.5rem;
     background:
-        radial-gradient(
-            circle at 90% 20%,
-            rgba(126, 231, 216, 0.08),
-            transparent 35%
-        ),
-        linear-gradient(
-            135deg,
-            rgba(255,255,255,0.025),
-            rgba(255,255,255,0.005)
-        );
-
-    border: 1px solid #242424;
-    border-radius: 20px;
-
+        radial-gradient(circle at 90% 20%, rgba(126, 231, 216, 0.06), transparent 40%),
+        linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.003));
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
     overflow: hidden;
 }
-
-
-/* Molecular accent line */
 
 .hero::before {
     content: "";
     position: absolute;
     left: 0;
     top: 0;
-
     width: 100%;
-    height: 2px;
-
-    background: linear-gradient(
-        90deg,
-        transparent,
-        #7ee7d8,
-        transparent
-    );
-
-    opacity: 0.8;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-teal), transparent);
 }
-
-
-/* Decorative molecular nodes */
-
-.hero::after {
-    content: "◦   ·   ◦      ·      ◦";
-    position: absolute;
-
-    right: 2rem;
-    top: 1.2rem;
-
-    color: rgba(126,231,216,0.18);
-    font-size: 2rem;
-    letter-spacing: 0.7rem;
-
-    pointer-events: none;
-}
-
-
-/* Hero kicker */
 
 .kicker {
-    color: #7ee7d8 !important;
-
-    font-family: monospace;
+    color: var(--accent-teal) !important;
+    font-family: var(--font-mono);
     font-size: 0.72rem;
-    font-weight: 700;
-
-    letter-spacing: 0.14em;
+    font-weight: 600;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
 }
-
-
-/* Hero title */
 
 .hero-title {
-    display: block;
-
-    color: #ffffff !important;
-
-    font-size: clamp(2.2rem, 5vw, 3.7rem);
-    font-weight: 750;
-
-    line-height: 1.05;
-
-    margin: 0.3rem 0 0.7rem;
-
-    letter-spacing: -0.035em;
+    color: var(--text-primary) !important;
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    margin: 0.2rem 0 0.6rem;
 }
-
-
-/* Hero description */
 
 .hero-copy {
-    display: block;
-
-    color: #999999 !important;
-
-    font-size: 0.98rem;
+    color: var(--text-secondary) !important;
+    font-size: 0.95rem;
     line-height: 1.6;
-
-    margin-top: 0.3rem;
+    max-width: 800px;
 }
-
 
 /* =========================================================
-   METRIC CARDS
+   5. METRICS & CONTROL CARDS
    ========================================================= */
-
-.metric-card {
-    position: relative;
-
-    background:
-        linear-gradient(
-            145deg,
-            rgba(255,255,255,0.035),
-            rgba(255,255,255,0.008)
-        ),
-        #0b0b0b;
-
-    border: 1px solid #242424;
-    border-radius: 14px;
-
-    padding: 1.1rem;
-
-    min-height: 92px;
-
-    transition:
-        border-color 0.2s ease,
-        transform 0.2s ease;
+[data-testid="stMetric"] {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: 12px !important;
+    padding: 1rem 1.2rem !important;
+    transition: border-color 0.2s ease, transform 0.2s ease;
 }
 
-.metric-card:hover {
-    border-color: rgba(126,231,216,0.45);
-    transform: translateY(-2px);
-}
-
-.metric-label {
-    color: #888888 !important;
-
-    font-family: monospace;
-    font-size: 0.65rem;
-
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
-
-.metric-value {
-    color: #ffffff !important;
-
-    font-size: 1.35rem;
-    font-weight: 700;
-
-    margin-top: 0.25rem;
-}
-
-.metric-sub {
-    color: #7ee7d8 !important;
-
-    font-size: 0.72rem;
-    margin-top: 0.25rem;
-}
-
-
-/* =========================================================
-   SOURCE BADGES
-   ========================================================= */
-
-.source-badge {
-    display: inline-block;
-
-    padding: 0.3rem 0.65rem;
-    margin-right: 0.35rem;
-    margin-bottom: 0.35rem;
-
-    border: 1px solid #292929;
-    border-radius: 999px;
-
-    background: #0b0b0b;
-
-    color: #8d8d8d !important;
-
-    font-family: monospace;
-    font-size: 0.65rem;
-}
-
-
-/* =========================================================
-   SECTION TITLES
-   ========================================================= */
-
-.section-title {
-    margin: 1.25rem 0 0.65rem;
-
-    color: #ffffff !important;
-
-    font-size: 1.15rem;
-    font-weight: 700;
-}
-
-
-/* =========================================================
-   CONTAINERS / CARDS
-   ========================================================= */
-
-div[data-testid="stVerticalBlockBorderWrapper"] {
-    background:
-        linear-gradient(
-            145deg,
-            rgba(255,255,255,0.025),
-            rgba(255,255,255,0.005)
-        ),
-        #0b0b0b !important;
-
-    border: 1px solid #242424 !important;
-    border-radius: 14px;
-}
-
-
-/* =========================================================
-   INPUTS
-   ========================================================= */
-
-.stTextInput input,
-.stTextArea textarea {
-    background: #0d0d0d !important;
-
-    color: #ffffff !important;
-
-    border: 1px solid #292929 !important;
-    border-radius: 9px !important;
-}
-
-.stTextInput input::placeholder,
-.stTextArea textarea::placeholder {
-    color: #666666 !important;
-}
-
-.stTextInput input:focus,
-.stTextArea textarea:focus {
-    border-color: #7ee7d8 !important;
-    box-shadow: 0 0 0 1px rgba(126,231,216,0.15) !important;
-}
-
-
-/* =========================================================
-   SELECT BOXES
-   ========================================================= */
-
-.stSelectbox div[data-baseweb="select"] > div {
-    background: #0d0d0d !important;
-
-    border: 1px solid #292929 !important;
-
-    color: #ffffff !important;
-}
-
-
-/* =========================================================
-   BUTTONS
-   ========================================================= */
-
-.stButton > button {
-    background:
-        linear-gradient(
-            145deg,
-            #151515,
-            #0d0d0d
-        ) !important;
-
-    color: #ffffff !important;
-
-    border: 1px solid #303030 !important;
-    border-radius: 9px !important;
-
-    font-weight: 600;
-
-    transition:
-        border-color 0.2s ease,
-        color 0.2s ease,
-        transform 0.2s ease;
-}
-
-.stButton > button:hover {
-    border-color: #7ee7d8 !important;
-    color: #7ee7d8 !important;
-
+[data-testid="stMetric"]:hover {
+    border-color: rgba(126, 231, 216, 0.3) !important;
     transform: translateY(-1px);
 }
 
+[data-testid="stMetricLabel"] {
+    font-family: var(--font-mono) !important;
+    font-size: 0.7rem !important;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted) !important;
+}
+
+[data-testid="stMetricValue"] {
+    font-family: var(--font-mono) !important;
+    font-size: 1.4rem !important;
+    font-weight: 600 !important;
+    color: var(--text-primary) !important;
+}
 
 /* =========================================================
-   TABS
+   6. INPUTS & TACTILE BUTTONS
    ========================================================= */
-
-.stTabs [data-baseweb="tab-list"] {
-    gap: 0.35rem;
-
-    border-bottom: 1px solid #242424;
+.stTextInput input, .stTextArea textarea {
+    background: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: 8px !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.9rem !important;
 }
 
-.stTabs [data-baseweb="tab"] {
-    color: #777777 !important;
-
-    font-size: 0.85rem;
-    font-weight: 600;
+.stTextInput input:focus, .stTextArea textarea:focus {
+    border-color: var(--accent-teal) !important;
+    box-shadow: 0 0 0 1px rgba(126, 231, 216, 0.2) !important;
 }
 
-.stTabs [aria-selected="true"] {
-    color: #7ee7d8 !important;
-    font-weight: 700;
+.stButton > button {
+    background: linear-gradient(180deg, #161616 0%, #0d0d0d 100%) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid #2a2a2a !important;
+    border-radius: 8px !important;
+    font-family: var(--font-sans) !important;
+    font-weight: 600 !important;
+    font-size: 0.875rem !important;
+    padding: 0.5rem 1.2rem !important;
+    transition: all 0.15s ease !important;
 }
 
+.stButton > button:hover {
+    border-color: var(--accent-teal) !important;
+    color: var(--accent-teal) !important;
+    transform: translateY(-1px);
+}
+
+.stButton > button[kind="primary"] {
+    background: var(--accent-teal) !important;
+    color: #050505 !important;
+    border: none !important;
+}
+
+.stButton > button[kind="primary"]:hover {
+    background: #62d4c3 !important;
+    color: #050505 !important;
+}
 
 /* =========================================================
-   DATAFRAMES
+   7. SIDEBAR & NAVIGATION
    ========================================================= */
-
-[data-testid="stDataFrame"] {
-    border: 1px solid #242424;
-    border-radius: 10px;
-    overflow: hidden;
+[data-testid="stSidebar"] {
+    background: var(--bg-base) !important;
+    border-right: 1px solid var(--border-subtle) !important;
 }
-
 
 /* =========================================================
-   LINKS
+   8. MOBILE RESPONSIVE
    ========================================================= */
-
-a {
-    color: #7ee7d8 !important;
-}
-
-
-/* =========================================================
-   DIVIDERS
-   ========================================================= */
-
-hr {
-    border-color: #242424 !important;
-}
-
-
-/* =========================================================
-   SCROLLBAR
-   ========================================================= */
-
-::-webkit-scrollbar {
-    width: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: #050505;
-}
-
-::-webkit-scrollbar-thumb {
-    background: #292929;
-    border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #3a3a3a;
-}
-
-
-/* =========================================================
-   MOBILE RESPONSIVE FIXES (Screens <= 768px)
-   ========================================================= */
-
 @media screen and (max-width: 768px) {
-    /* 1. Reduce side padding so content uses full width */
     .block-container {
         padding-left: 0.75rem !important;
         padding-right: 0.75rem !important;
-        padding-top: 1.25rem !important;
+        padding-top: 1rem !important;
     }
 
-    /* 2. Force multi-column sections to stack naturally on mobile */
     [data-testid="column"] {
         width: 100% !important;
         flex: 1 1 100% !important;
-        min-width: 100% !important;
-        margin-bottom: 0.65rem;
+        margin-bottom: 0.75rem;
     }
 
-    /* 3. Scale down hero title for mobile viewports */
     .hero-title {
-        font-size: 2rem !important;
+        font-size: 1.8rem !important;
     }
 
-    .hero {
-        padding: 1.5rem 1.25rem 1.25rem !important;
-    }
-
-    /* 4. Make interactive buttons full width for easier tapping */
     .stButton > button {
         width: 100% !important;
     }
-
-    /* 5. Prevent tables/code blocks from blowing out screen width */
-    [data-testid="stDataFrame"], .stCode, pre {
-        max-width: 100% !important;
-        overflow-x: auto !important;
-    }
 }
-
 </style>
 """
 
-
 def inject_css() -> None:
-    st.markdown(
-        CUSTOM_CSS,
-        unsafe_allow_html=True,
-    )
+    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)

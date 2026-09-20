@@ -19,14 +19,14 @@ def render_landing() -> None:
     active_compare = st.session_state.get("active_compare_queries")
 
     if active_protein:
-        if st.button("← Back to Protein Explorer", key="back_to_landing"):
+        if st.button("← Back to तत्त्व", key="back_to_landing"):
             st.session_state.pop("active_protein_query", None)
             st.rerun()
         show_protein(active_protein)
         return
 
     if active_compare:
-        if st.button("← Back to Protein Explorer", key="back_to_landing_compare"):
+        if st.button("← Back to तत्त्व", key="back_to_landing_compare"):
             st.session_state.pop("active_compare_queries", None)
             st.rerun()
         show_comparison(active_compare)
@@ -36,7 +36,7 @@ def render_landing() -> None:
         """
         <div class="hero">
             <div class="kicker">Structural biology · Bioinformatics · Protein science</div>
-            <div class="hero-title">Protein Explorer <span style="color:#6366f1">3.0</span></div>
+            <div class="hero-title">तत्त्व</div>
             <div class="hero-copy">
                 A professional workspace for moving from amino-acid sequence to
                 biochemical properties, predicted structure, hydrophobicity,

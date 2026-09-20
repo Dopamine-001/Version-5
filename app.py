@@ -1,5 +1,5 @@
 """
-TATVA (तत्त्व)
+TATVAM (तत्त्वम्)
 A professional Streamlit application for biomolecular study and protein exploration.
 """
 
@@ -23,7 +23,7 @@ from views.landing import render_landing
 from views.sidebar import render_sidebar
 
 st.set_page_config(
-    page_title="तत्त्व | Biomolecular Intelligence Platform",
+    page_title="तत्त्वम् | Biomolecular Intelligence Platform",
     page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded",

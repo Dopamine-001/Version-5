@@ -37,6 +37,9 @@ def render_landing() -> None:
         <div class="hero">
             <div class="kicker">Structural biology · Bioinformatics · Protein science</div>
             <div class="hero-title">तत्त्वम्</div>
+            <div style="font-family: 'Noto Serif Devanagari', 'Spectral', Georgia, serif; font-size: 1.15rem; color: #1d4c37; margin-top: -0.3rem; margin-bottom: 0.9rem; font-weight: 600;">
+                अनुक्रमात् संरचनां प्रति जैव-सूचना-अन्वेषणम्
+            </div>
             <div class="hero-copy">
                 A professional workspace for moving from amino-acid sequence to
                 biochemical properties, predicted structure, hydrophobicity,

@@ -1,11 +1,11 @@
 """
-Shared constants for Protein Explorer.
+Shared constants for TATVA (तत्त्व).
 
 Nothing in here touches Streamlit or does any network/IO work — it's safe
 to import from anywhere without side effects.
 """
 
-APP_NAME = "Protein Explorer"
+APP_NAME = "तत्त्व"
 
 UNIPROT_SEARCH_URL = "https://rest.uniprot.org/uniprotkb/search"
 UNIPROT_RECORD_URL = "https://rest.uniprot.org/uniprotkb/{accession}.json"

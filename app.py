@@ -1,6 +1,6 @@
 """
-Protein Explorer
-A professional Streamlit application for protein study and exploration.
+TATVA (तत्त्व)
+A professional Streamlit application for biomolecular study and protein exploration.
 """
 
 from __future__ import annotations
@@ -15,15 +15,15 @@ if str(ROOT_DIR) not in sys.path:
 
 import streamlit as st
 
+import plot_theme as pt
 from config import APP_NAME
-from core.ui_theme import load_aesthetic_theme
 from core.database import init_db, log_search  
 from styles import inject_css
 from views.landing import render_landing
 from views.sidebar import render_sidebar
 
 st.set_page_config(
-    page_title=APP_NAME,
+    page_title="तत्त्व | Biomolecular Intelligence Platform",
     page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -32,8 +32,7 @@ st.set_page_config(
 # Initialize the SQLite database table on app startup
 init_db()
 
-load_aesthetic_theme()
-# Inject CSS last so its background rules take top priority
+# Inject design system CSS so background margins and typography take priority
 inject_css()
 
 # If you capture search queries in session state or user input, log them here:

@@ -1,11 +1,11 @@
 """
-Shared constants for TATVA (तत्त्व).
+Shared constants for TATVAM (तत्त्वम्).
 
 Nothing in here touches Streamlit or does any network/IO work — it's safe
 to import from anywhere without side effects.
 """
 
-APP_NAME = "तत्त्व"
+APP_NAME = "तत्त्वम्"
 
 UNIPROT_SEARCH_URL = "https://rest.uniprot.org/uniprotkb/search"
 UNIPROT_RECORD_URL = "https://rest.uniprot.org/uniprotkb/{accession}.json"

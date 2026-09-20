@@ -1,5 +1,5 @@
 """
-Protein Explorer - Molecular Biology theme.
+TATVAM (तत्त्वम्) - Molecular Biology Theme.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ GREEN_DEEP = "#1d4c37"
 BLUE = "#2b5f86"
 AMBER = "#9a6b1f"
 
-_HELIX_W = 220.0       
+_HELIX_W = 220.0        
 _HELIX_TURN = 260.0     
 _HELIX_AMP = 74.0       
 _HELIX_RIBBON = 6.0     
@@ -97,7 +97,7 @@ _HERO_HELIX = _data_uri(_helix_svg(0.40))
 def _css() -> str:
     return f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Devanagari:wght@500;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 :root {{
     --paper: {PAPER}; --paper-deep: {PAPER_DEEP}; --card: {CARD};
@@ -149,7 +149,7 @@ html body [data-testid="stMarkdownContainer"] {{
 }}
 html body p {{ max-width: 72ch; color: var(--ink-soft) !important; }}
 html body h1, html body h2, html body h3, html body h4 {{
-    font-family: 'Spectral', Georgia, serif !important;
+    font-family: 'Noto Serif Devanagari', 'Spectral', Georgia, serif !important;
     color: var(--ink) !important; font-weight: 600 !important;
     letter-spacing: -0.01em !important; text-transform: none !important;
 }}
@@ -182,7 +182,7 @@ html body .kicker {{
     padding-bottom: 0.4rem !important; margin-bottom: 0.9rem !important;
 }}
 html body .hero-title {{
-    font-family: 'Spectral', Georgia, serif !important;
+    font-family: 'Noto Serif Devanagari', 'Spectral', Georgia, serif !important;
     font-size: clamp(1.9rem, 3.4vw, 2.7rem) !important; font-weight: 600 !important;
     line-height: 1.12 !important; letter-spacing: -0.02em !important;
     text-transform: none !important; color: var(--ink) !important;
@@ -205,7 +205,7 @@ html body .metric-label {{
     text-transform: none !important; color: var(--muted) !important; display: block;
 }}
 html body .metric-value {{
-    font-family: 'Spectral', Georgia, serif !important; font-size: 1.85rem !important;
+    font-family: 'Noto Serif Devanagari', 'Spectral', Georgia, serif !important; font-size: 1.85rem !important;
     font-weight: 600 !important; letter-spacing: -0.015em !important; line-height: 1.1 !important;
     color: var(--ink) !important; margin-top: 0.35rem !important; font-variant-numeric: tabular-nums;
 }}
@@ -224,7 +224,7 @@ html body .source-badge {{
 }}
 html body .source-badge:hover {{ border-color: var(--green) !important; background: rgba(46,111,82,0.07) !important; }}
 html body .section-title {{
-    font-family: 'Spectral', Georgia, serif !important; font-size: 1.22rem !important;
+    font-family: 'Noto Serif Devanagari', 'Spectral', Georgia, serif !important; font-size: 1.22rem !important;
     font-weight: 600 !important; text-transform: none !important; color: var(--ink) !important;
     border-bottom: 1px solid var(--rule) !important; padding-bottom: 0.5rem !important;
     margin: 2rem 0 1rem !important;
@@ -295,7 +295,7 @@ html body [data-testid="stExpander"] {{
     border-radius: var(--radius) !important;
 }}
 html body [data-testid="stExpander"] summary {{
-    font-family: 'Spectral', Georgia, serif !important; font-size: 1rem !important;
+    font-family: 'Noto Serif Devanagari', 'Spectral', Georgia, serif !important; font-size: 1rem !important;
     font-weight: 600 !important; text-transform: none !important; color: var(--ink) !important;
 }}
 html body [data-testid="stDataFrame"], html body div[data-testid="stVerticalBlockBorderWrapper"] {{
